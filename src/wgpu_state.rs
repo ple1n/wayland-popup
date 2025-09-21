@@ -57,7 +57,7 @@ impl WgpuState {
                 raw_window_handle,
             })?
         };
-
+        
         let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
             compatible_surface: Some(&surface),
             ..Default::default()
@@ -81,7 +81,7 @@ impl WgpuState {
             height: 1,
             present_mode: PresentMode::AutoNoVsync,
             desired_maximum_frame_latency: 2,
-            alpha_mode: egui_wgpu::wgpu::CompositeAlphaMode::Auto,
+            alpha_mode: egui_wgpu::wgpu::CompositeAlphaMode::PreMultiplied,
             view_formats: vec![*texture_format],
         };
 
