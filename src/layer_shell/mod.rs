@@ -12,7 +12,15 @@ use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_seat,
     output::{OutputHandler, OutputState},
-    reexports::{calloop::LoopHandle, calloop_wayland_source::WaylandSource},
+    reexports::{
+        calloop::LoopHandle,
+        calloop_wayland_source::WaylandSource,
+        protocols::ext::background_effect::v1::client::{
+            ext_background_effect_manager_v1::{self, ExtBackgroundEffectManagerV1},
+            ext_background_effect_surface_v1,
+        },
+        protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1,
+    },
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{Capability, SeatHandler, SeatState},
@@ -25,10 +33,10 @@ use smithay_client_toolkit::{
     },
 };
 use wayland_client::{
-    globals::registry_queue_init,
-    protocol::{wl_keyboard::WlKeyboard, wl_output, wl_pointer::WlPointer, wl_seat, wl_surface},
-    Connection, QueueHandle,
+    Connection, Proxy, QueueHandle, delegate_dispatch, delegate_noop, globals::registry_queue_init, protocol::{wl_keyboard::WlKeyboard, wl_output, wl_pointer::WlPointer, wl_region::WlRegion, wl_seat, wl_surface}
 };
+use wayland_protocols_plasma::blur::client::org_kde_kwin_blur::OrgKdeKwinBlur;
+use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwinBlurManager;
 
 use crate::{
     egui_state::{self},
@@ -68,16 +76,29 @@ pub(crate) struct WgpuLayerShellState {
     pub(crate) draw_request: Arc<RwLock<Option<Instant>>>,
 }
 
+delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectManagerV1);
+delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlurManager);
+delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlur);
+delegate_noop!(WgpuLayerShellState: ignore WlRegion);
+
 impl WgpuLayerShellState {
     pub(crate) fn new(loop_handle: LoopHandle<'static, Self>, options: LayerShellOptions) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
         let queue_handle: Arc<QueueHandle<WgpuLayerShellState>> = Arc::new(event_queue.handle());
 
+        // global_list
+        //     .bind::<ExtBackgroundEffectManagerV1, _, _>(queue_handle.as_ref(), 0..=1, ())
+        //     .unwrap();
+
+        let kdeblur = global_list
+            .bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ())
+            .unwrap();
+
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
             .unwrap();
-
+        
         let compositor_state = CompositorState::bind(&global_list, &queue_handle)
             .expect("wl_compositor not available");
 
@@ -92,6 +113,7 @@ impl WgpuLayerShellState {
             Some(options.namespace),
             None,
         );
+
         if let Some(anchor) = options.anchor {
             layer_surface.set_anchor(anchor);
         }
@@ -99,13 +121,19 @@ impl WgpuLayerShellState {
             layer_surface.set_keyboard_interactivity(keyboard_interactivity);
         }
         layer_surface.set_size(options.width, options.height);
+        layer_surface.set_opaque_region(None);
         layer_surface.commit();
+
+        let region = compositor_state.wl_compositor().create_region(&queue_handle, ());
+        region.add(0, 0, 1000, 1000);
+        let blur: OrgKdeKwinBlur = kdeblur.create(layer_surface.wl_surface(), &queue_handle, ());
+        blur.set_region(Some(&region));
+        blur.commit();
 
         let wgpu_state = WgpuState::new(&connection.backend(), layer_surface.wl_surface())
             .expect("Could not create wgpu state");
 
         let egui_context = egui::Context::default();
-
         let draw_request = Arc::new(RwLock::new(None));
 
         egui_context.set_request_repaint_callback({
@@ -218,7 +246,7 @@ impl WgpuLayerShellState {
             full_output.textures_delta,
         );
         self.wgpu_state.queue.submit(Some(encoder.finish()));
-        
+
         self.layer
             .wl_surface()
             .frame(&self.queue_handle, self.layer.wl_surface().clone());
@@ -409,3 +437,5 @@ impl SeatHandler for WgpuLayerShellState {
 
     fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 }
+
+// delegate_dispatch!(WgpuLayerShellState: [ExtBackgroundEffectManagerV1: ()] => WgpuLayerShellState);

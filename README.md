@@ -23,3 +23,10 @@ This is a likely incomplete list of things that need to be done:
 - [ ] cursor shape protocol
 
 The code is also in a really dirty state, it'll take some time to clean it up and find a good way to structure and abstract over things.
+
+## dev
+
+surface creation at 
+
+src/wgpu_state.rs
+src/layer_shell/mod.rs

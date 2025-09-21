@@ -3,6 +3,7 @@ use std::ptr::NonNull;
 use raw_window_handle::{
     RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle,
 };
+use smithay_client_toolkit::reexports::{protocols::ext::background_effect::v1::client::ext_background_effect_manager_v1, protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1};
 use thiserror::Error;
 use wayland_backend::client::Backend;
 use wayland_client::{protocol::wl_surface::WlSurface, Proxy};
@@ -32,6 +33,7 @@ pub struct WgpuState {
     pub(crate) queue: Queue,
     pub(crate) surface: Surface<'static>,
 }
+use ext_background_effect_manager_v1::*;
 
 impl WgpuState {
     pub fn new(backend: &Backend, wl_surface: &WlSurface) -> Result<Self, WgpuStateError> {
@@ -40,11 +42,13 @@ impl WgpuState {
             ..Default::default()
         });
 
-        let raw_display_handle = RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
+        let w_display = WaylandDisplayHandle::new(
             NonNull::new(backend.display_ptr() as *mut _).ok_or(
                 WgpuStateError::NullPointerError("display of backend".to_string()),
             )?,
-        ));
+        );
+        let raw_display_handle = RawDisplayHandle::Wayland(w_display);
+        
         let raw_window_handle = RawWindowHandle::Wayland(WaylandWindowHandle::new(
             NonNull::new(wl_surface.id().as_ptr() as *mut _).ok_or(
                 WgpuStateError::NullPointerError("wl_surface id".to_string()),
@@ -57,7 +61,7 @@ impl WgpuState {
                 raw_window_handle,
             })?
         };
-        
+
         let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
             compatible_surface: Some(&surface),
             ..Default::default()

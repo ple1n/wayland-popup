@@ -1091,6 +1091,7 @@ dependencies = [
  "thiserror",
  "wayland-backend",
  "wayland-client",
+ "wayland-protocols-plasma",
  "wgpu",
 ]
 
@@ -2231,6 +2232,19 @@ dependencies = [
  "bitflags 2.9.4",
  "wayland-backend",
  "wayland-client",
+ "wayland-scanner",
+]
+
+[[package]]
+name = "wayland-protocols-plasma"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a07a14257c077ab3279987c4f8bb987851bf57081b93710381daea94f2c2c032"
+dependencies = [
+ "bitflags 2.9.4",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
  "wayland-scanner",
 ]
 
