@@ -1429,6 +1429,7 @@ dependencies = [
  "tracing-subscriber",
  "wayland-backend",
  "wayland-client",
+ "wayland-clipboard-listener",
  "wayland-protocols-plasma",
  "wgpu",
 ]
@@ -1753,6 +1754,16 @@ dependencies = [
  "percent-encoding",
  "rand 0.9.2",
  "thiserror 2.0.16",
+]
+
+[[package]]
+name = "os_pipe"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db335f4760b14ead6290116f2427bf33a14d4f0617d49f78a246de10c1831224"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3105,6 +3116,20 @@ dependencies = [
  "rustix 1.1.2",
  "wayland-backend",
  "wayland-scanner",
+]
+
+[[package]]
+name = "wayland-clipboard-listener"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a66d6882cfcf7f683728d701c050a3d1a39239816f6a0fae11eb38be8dce333"
+dependencies = [
+ "log",
+ "os_pipe",
+ "thiserror 2.0.16",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
 ]
 
 [[package]]
