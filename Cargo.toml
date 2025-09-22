@@ -17,6 +17,9 @@ wayland-backend = { version = "0.3.6", features = ["client_system"] }
 wayland-client = "0.31.5"
 wayland-protocols-plasma = { version = "0.3.9", features = ["client"] }
 wgpu = "0.20.1"
+evdev = "0.13.2"
+tokio = { version = "1.47.1", features = ["macros", "rt", "rt-multi-thread"] }
+futures = "0.3.31"
 
 [dev-dependencies]
 egui_extras = { version = "0.28.1", features = ["all_loaders"] }
