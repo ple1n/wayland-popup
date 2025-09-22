@@ -12,18 +12,22 @@ use evdev::KeyCode;
 use futures::channel::oneshot;
 use futures::{stream::FuturesUnordered, StreamExt};
 use layer_shell_wgpu_egui::proto;
+use tracing::debug;
 use tracing::info;
+use tracing::warn;
 
 const RELEASE: i32 = 0;
 const PRESS: i32 = 1;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
 
     let mut streams = Vec::new();
     for (path, dev) in evdev::enumerate() {
-        println!("{:?}", path);
+        warn!("{:?}", path);
         let ev = dev.into_event_stream()?;
         streams.push(ev);
     }
@@ -37,28 +41,33 @@ async fn main() -> Result<()> {
             let ev = ev?;
             match ev.destructure() {
                 EventSummary::Key(ke, code, ty) => {
+                    debug!("{:?} {}", code, ty);
                     let sx = sx_map.remove(&code);
                     if let Some(sx) = sx {
                         if ty == RELEASE {
                             let _ = sx.send(());
+                        } else {
+                            sx_map.insert(code, sx);
                         }
                     } else {
-                        let (sx, rx) = oneshot::channel::<()>();
-                        let time = req_time
-                            .get(&code)
-                            .cloned()
-                            .unwrap_or(Duration::from_millis(1000));
-                        sx_map.insert(code, sx);
-                        tokio::spawn(async move {
-                            tokio::select! {
-                                _ = tokio::time::sleep(time) => {
-                                    info!("long press")
-                                },
-                                _ = rx => {
-                                    info!("early interrupted long press event");
-                                }
-                            };
-                        });
+                        if ty == PRESS {
+                            let (sx, rx) = oneshot::channel::<()>();
+                            let time = req_time
+                                .get(&code)
+                                .cloned()
+                                .unwrap_or(Duration::from_millis(1000));
+                            sx_map.insert(code, sx);
+                            tokio::spawn(async move {
+                                tokio::select! {
+                                    _ = tokio::time::sleep(time) => {
+                                        info!(code = ?code, "long press")
+                                    },
+                                    _ = rx => {
+                                        debug!("early interrupted long press event");
+                                    }
+                                };
+                            });
+                        }
                     }
                 }
                 _ => {}
