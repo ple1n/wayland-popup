@@ -11,6 +11,7 @@ pub mod layer_shell;
 pub(crate) mod wgpu_state;
 
 pub mod passthru_app;
+pub mod proto;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
@@ -87,3 +88,4 @@ pub fn run_layer_simple_pass(
         Box::new(|_| Ok(Box::new(SimpleLayerWrapper { update_fun }))),
     )
 }
+
