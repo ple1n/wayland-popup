@@ -1,12 +1,16 @@
 use application::WgpuLayerShellApp;
 use layer_shell::LayerShellOptions;
 
-use crate::application::MsgQueue;
+use crate::{
+    application::MsgQueue, layer_shell::passthrough::PassthroughShell, passthru_app::PassthruApp,
+};
 
 pub mod application;
 pub(crate) mod egui_state;
 pub mod layer_shell;
 pub(crate) mod wgpu_state;
+
+pub mod passthru_app;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
@@ -50,6 +54,35 @@ pub fn run_layer_simple(
     }
 
     run_layer(
+        options,
+        Box::new(|_| Ok(Box::new(SimpleLayerWrapper { update_fun }))),
+    )
+}
+
+pub fn run_layer_pass(
+    options: LayerShellOptions,
+    app_creator: AppCreator,
+) -> (MsgQueue, PassthruApp) {
+    let (q, app) = PassthruApp::new(options, app_creator);
+
+    (q, app)
+}
+
+pub fn run_layer_simple_pass(
+    options: LayerShellOptions,
+    update_fun: impl FnMut(&egui::Context) + 'static,
+) -> (MsgQueue, PassthruApp) {
+    struct SimpleLayerWrapper<U> {
+        update_fun: U,
+    }
+
+    impl<U: FnMut(&egui::Context) + 'static> App for SimpleLayerWrapper<U> {
+        fn update(&mut self, ctx: &egui::Context) {
+            (self.update_fun)(ctx);
+        }
+    }
+
+    run_layer_pass(
         options,
         Box::new(|_| Ok(Box::new(SimpleLayerWrapper { update_fun }))),
     )

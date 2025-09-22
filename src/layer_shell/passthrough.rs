@@ -1,14 +1,10 @@
-mod keyboard_handler;
-mod pointer_handler;
-
 use std::{
     sync::{Arc, RwLock},
     time::{Duration, Instant},
-    u32,
 };
 
+use super::keyboard_handler::handle_key_press;
 use egui_wgpu::ScreenDescriptor;
-use keyboard_handler::handle_key_press;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_seat,
@@ -51,19 +47,9 @@ use crate::{
     App,
 };
 
-pub mod passthrough;
+use crate::LayerShellOptions;
 
-#[derive(Default)]
-pub struct LayerShellOptions {
-    pub layer: Option<Layer>,
-    pub namespace: String,
-    pub width: u32,
-    pub height: u32,
-    pub anchor: Option<Anchor>,
-    pub keyboard_interactivity: Option<KeyboardInteractivity>,
-}
-
-pub(crate) struct WgpuLayerShellState {
+pub(crate) struct PassthroughShell {
     //event_loop: Arc<EventLoop<'static, Self>>,
     loop_handle: LoopHandle<'static, Self>,
     registry_state: RegistryState,
@@ -85,61 +71,46 @@ pub(crate) struct WgpuLayerShellState {
     pub(crate) draw_request: Arc<RwLock<Option<Instant>>>,
 }
 
-delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectManagerV1);
-delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlurManager);
-delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlur);
-delegate_noop!(WgpuLayerShellState: ignore WlRegion);
+delegate_noop!(PassthroughShell: ignore ExtBackgroundEffectManagerV1);
+delegate_noop!(PassthroughShell: ignore OrgKdeKwinBlurManager);
+delegate_noop!(PassthroughShell: ignore OrgKdeKwinBlur);
+delegate_noop!(PassthroughShell: ignore WlRegion);
 
-impl WgpuLayerShellState {
-    pub(crate) fn new(loop_handle: LoopHandle<'static, Self>, options: LayerShellOptions) -> Self {
+impl PassthroughShell {
+    pub(crate) fn new(
+        loop_handle: LoopHandle<'static, Self>,
+        options: crate::LayerShellOptions,
+    ) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
-        let queue_handle: Arc<QueueHandle<WgpuLayerShellState>> = Arc::new(event_queue.handle());
+        let queue_handle: Arc<QueueHandle<PassthroughShell>> = Arc::new(event_queue.handle());
 
-        // global_list
-        //     .bind::<ExtBackgroundEffectManagerV1, _, _>(queue_handle.as_ref(), 0..=1, ())
-        //     .unwrap();
-
-        let kdeblur = global_list
-            .bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ())
-            .unwrap();
-        
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
             .unwrap();
 
         let compositor_state = CompositorState::bind(&global_list, &queue_handle)
             .expect("wl_compositor not available");
-        let wl_surface = compositor_state.create_surface(&queue_handle);
 
+        let wl_surface = compositor_state.create_surface(&queue_handle);
         let layer_shell =
             LayerShell::bind(&global_list, &queue_handle).expect("layer shell not available");
         let layer_surface = layer_shell.create_layer_surface(
             &queue_handle,
             wl_surface,
-            options.layer.unwrap_or(Layer::Top),
-            Some(options.namespace.clone()),
+            Layer::Overlay,
+            Some(options.namespace),
             None,
         );
 
-        if let Some(anchor) = options.anchor {
-            layer_surface.set_anchor(anchor);
-        }
-        if let Some(keyboard_interactivity) = options.keyboard_interactivity {
-            layer_surface.set_keyboard_interactivity(keyboard_interactivity);
-        }
+        layer_surface.set_anchor(Anchor::all());
+        layer_surface.set_exclusive_zone(-1);
+        layer_surface.set_input_region(None);
         layer_surface.set_size(options.width, options.height);
+        layer_surface.set_input_region(None);
         layer_surface.set_opaque_region(None);
+        layer_surface.set_keyboard_interactivity(KeyboardInteractivity::None);
         layer_surface.commit();
-
-        let region = compositor_state
-            .wl_compositor()
-            .create_region(&queue_handle, ());
-        region.add(0, 0, 1000, 1000);
-
-        let blur: OrgKdeKwinBlur = kdeblur.create(layer_surface.wl_surface(), &queue_handle, ());
-        blur.set_region(Some(&region));
-        blur.commit();
 
         let wgpu_state = WgpuState::new(&connection.backend(), layer_surface.wl_surface())
             .expect("Could not create wgpu state");
@@ -163,7 +134,7 @@ impl WgpuLayerShellState {
             1,
         );
 
-        WgpuLayerShellState {
+        PassthroughShell {
             loop_handle: loop_handle.clone(),
             registry_state: RegistryState::new(&global_list),
             seat_state: SeatState::new(&global_list, &queue_handle),
@@ -266,16 +237,16 @@ impl WgpuLayerShellState {
     }
 }
 
-delegate_registry!(WgpuLayerShellState);
-impl ProvidesRegistryState for WgpuLayerShellState {
+delegate_registry!(PassthroughShell);
+impl ProvidesRegistryState for PassthroughShell {
     fn registry(&mut self) -> &mut RegistryState {
         &mut self.registry_state
     }
     registry_handlers![OutputState];
 }
 
-delegate_output!(WgpuLayerShellState);
-impl OutputHandler for WgpuLayerShellState {
+delegate_output!(PassthroughShell);
+impl OutputHandler for PassthroughShell {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.output_state
     }
@@ -305,8 +276,8 @@ impl OutputHandler for WgpuLayerShellState {
     }
 }
 
-delegate_compositor!(WgpuLayerShellState);
-impl CompositorHandler for WgpuLayerShellState {
+delegate_compositor!(PassthroughShell);
+impl CompositorHandler for PassthroughShell {
     fn scale_factor_changed(
         &mut self,
         _conn: &Connection,
@@ -354,8 +325,8 @@ impl CompositorHandler for WgpuLayerShellState {
     }
 }
 
-delegate_layer!(WgpuLayerShellState);
-impl LayerShellHandler for WgpuLayerShellState {
+delegate_layer!(PassthroughShell);
+impl LayerShellHandler for PassthroughShell {
     fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {
         self.exit = true;
     }
@@ -382,8 +353,8 @@ impl LayerShellHandler for WgpuLayerShellState {
     }
 }
 
-delegate_seat!(WgpuLayerShellState);
-impl SeatHandler for WgpuLayerShellState {
+delegate_seat!(PassthroughShell);
+impl SeatHandler for PassthroughShell {
     fn seat_state(&mut self) -> &mut SeatState {
         &mut self.seat_state
     }
@@ -399,6 +370,7 @@ impl SeatHandler for WgpuLayerShellState {
     ) {
         match capability {
             Capability::Pointer if self.pointer.is_none() => {
+                println!("point");
                 let pointer = self
                     .seat_state
                     .get_pointer(qh, &seat)

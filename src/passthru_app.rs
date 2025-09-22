@@ -4,24 +4,20 @@ use crossbeam::queue::ArrayQueue;
 use smithay_client_toolkit::{reexports::calloop::{self, EventLoop}, shell::{WaylandSurface, wlr_layer::Layer}};
 
 use crate::{
-    layer_shell::{LayerShellOptions, WgpuLayerShellState},
-    App, AppCreator, Result,
+    App, AppCreator, Result, layer_shell::{LayerShellOptions, passthrough::PassthroughShell}
 };
 
-pub struct WgpuLayerShellApp {
+pub struct PassthruApp {
     application: RefCell<Box<dyn App>>,
-    event_loop: EventLoop<'static, WgpuLayerShellState>,
-    layer_shell_state: WgpuLayerShellState,
+    event_loop: EventLoop<'static, PassthroughShell>,
+    layer_shell_state: PassthroughShell,
 }
 
-#[derive(Debug)]
-pub enum Msg {
-    Hide(bool),
-}
+use crate::application::Msg;
 
 pub type MsgQueue = calloop::channel::Sender<Msg>;
 
-impl WgpuLayerShellApp {
+impl PassthruApp {
     pub fn new(
         layer_shell_options: LayerShellOptions,
         app_creator: AppCreator,
@@ -30,7 +26,7 @@ impl WgpuLayerShellApp {
         let (sx, rx) = calloop::channel::channel::<Msg>();
         event_loop
             .handle()
-            .insert_source(rx, |e, a, data: &mut WgpuLayerShellState| match e {
+            .insert_source(rx, |e, a, data: &mut PassthroughShell| match e {
                 calloop::channel::Event::Msg(m) => match m {
                     Msg::Hide(b) => {
                         println!("hide {}", b);
@@ -46,7 +42,7 @@ impl WgpuLayerShellApp {
                 _ => (),
             })
             .unwrap();
-        let layer_shell_state = WgpuLayerShellState::new(event_loop.handle(), layer_shell_options);
+        let layer_shell_state = PassthroughShell::new(event_loop.handle(), layer_shell_options);
 
         (
             sx.clone(),
