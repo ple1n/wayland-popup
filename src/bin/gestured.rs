@@ -7,12 +7,19 @@ use std::time::Duration;
 
 use anyhow::Ok as aok;
 use anyhow::Result;
+use async_bincode::tokio::AsyncBincodeStream;
+use async_bincode::tokio::AsyncBincodeWriter;
 use evdev::EventSummary;
 use evdev::KeyCode;
 use futures::channel::oneshot;
+use futures::SinkExt;
 use futures::{stream::FuturesUnordered, StreamExt};
 use layer_shell_wgpu_egui::proto;
+use layer_shell_wgpu_egui::proto::ProtoGesture;
+use layer_shell_wgpu_egui::proto::DEFAULT_SERVE_PATH;
+use tokio::net::UnixListener;
 use tracing::debug;
+use tracing::error;
 use tracing::info;
 use tracing::warn;
 
@@ -33,6 +40,35 @@ async fn main() -> Result<()> {
     }
     let req_time: HashMap<KeyCode, Duration> = HashMap::new();
     let mut sx_map: HashMap<KeyCode, oneshot::Sender<()>> = HashMap::new();
+    if streams.is_empty() {
+        error!("no input device found. check permissions");
+        return aok(());
+    }
+
+    let sock = UnixListener::bind(DEFAULT_SERVE_PATH)?;
+    let (sx, rx) = flume::unbounded::<proto::ProtoGesture>();
+
+    tokio::spawn(async move {
+        loop {
+            let (incom, addr) = sock.accept().await?;
+            warn!("incoming client at {:?}", addr);
+            let fm: AsyncBincodeStream<
+                tokio::net::UnixStream,
+                ProtoGesture,
+                ProtoGesture,
+                async_bincode::AsyncDestination,
+            > = AsyncBincodeStream::from(incom).for_async();
+            let rx = rx.clone();
+            tokio::spawn(async move {
+                loop {
+                    let k = rx.recv_async().await?;
+                    // fm.send();
+                }
+                aok(())
+            });
+        }
+        aok(())
+    });
 
     let mut sa = futures::stream::select_all(streams);
     loop {
@@ -76,5 +112,6 @@ async fn main() -> Result<()> {
             break;
         }
     }
+
     aok(())
 }

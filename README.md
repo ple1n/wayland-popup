@@ -13,3 +13,11 @@ surface creation at
 
 wayland-clipboard-listener can be directly used, which gives a stream over, currrent text selection. 
 It seems to require no extra privilege, not even extra supplemental gid. 
+
+## philosophy
+
+- minimal dependency
+- no config hierarchy, no such tree of config files with a priority list of include paths
+- no dependency on systemd or anything
+- no dBus
+
