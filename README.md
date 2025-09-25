@@ -2,7 +2,9 @@
 
 - [x] Acrylic semi-transparent windows that can instantly show or hide
 - [ ] Root-based global input event listener
-- [ ] Transparent overlay that tracks mouse? Doesnt seem to work
+- [ ] click passthrough
+    - accidentally figured out how to do this. might even be a bug of the wayland server, because I am unsure if thats a part of wayland spec.
+- [ ] IME
 
 ## dev
 
