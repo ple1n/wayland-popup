@@ -1,3 +1,4 @@
+#![allow(unreachable_code)]
 //! Privileged process handling all kinds of gestures that may faciliate apps such as a popup dictionary.
 //! Means include hooking up /dev/ inputs, and simulating user inputs.
 //!
@@ -5,23 +6,21 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use anyhow::Ok as aok;
 use anyhow::Result;
 use async_bincode::tokio::AsyncBincodeStream;
-use async_bincode::tokio::AsyncBincodeWriter;
 use evdev::EventSummary;
 use evdev::KeyCode;
 use futures::channel::oneshot;
 use futures::SinkExt;
 use futures::{stream::FuturesUnordered, StreamExt};
+use layer_shell_wgpu_egui::errors::wrap_noncritical;
 use layer_shell_wgpu_egui::proto;
 use layer_shell_wgpu_egui::proto::ProtoGesture;
 use layer_shell_wgpu_egui::proto::DEFAULT_SERVE_PATH;
 use tokio::net::UnixListener;
-use tracing::debug;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
+use tracing::{debug, error, info, warn};
+
+use layer_shell_wgpu_egui::errors::*;
 
 const RELEASE: i32 = 0;
 const PRESS: i32 = 1;
@@ -46,13 +45,13 @@ async fn main() -> Result<()> {
     }
 
     let sock = UnixListener::bind(DEFAULT_SERVE_PATH)?;
-    let (sx, rx) = flume::unbounded::<proto::ProtoGesture>();
+    let (brsx, rx) = flume::unbounded::<proto::ProtoGesture>();
 
     tokio::spawn(async move {
         loop {
             let (incom, addr) = sock.accept().await?;
             warn!("incoming client at {:?}", addr);
-            let fm: AsyncBincodeStream<
+            let mut fm: AsyncBincodeStream<
                 tokio::net::UnixStream,
                 ProtoGesture,
                 ProtoGesture,
@@ -62,16 +61,18 @@ async fn main() -> Result<()> {
             tokio::spawn(async move {
                 loop {
                     let k = rx.recv_async().await?;
-                    // fm.send();
+                    fm.send(k).await?;
                 }
                 aok(())
             });
         }
+
         aok(())
     });
 
     let mut sa = futures::stream::select_all(streams);
     loop {
+        let brsx = brsx.clone();
         let ev = sa.next().await;
         if let Some(ev) = ev {
             let ev = ev?;
@@ -96,7 +97,8 @@ async fn main() -> Result<()> {
                             tokio::spawn(async move {
                                 tokio::select! {
                                     _ = tokio::time::sleep(time) => {
-                                        info!(code = ?code, "long press")
+                                        info!(code = ?code, "long press");
+                                        handle_longpress(brsx, code).await;
                                     },
                                     _ = rx => {
                                         debug!("early interrupted long press event");
@@ -114,4 +116,12 @@ async fn main() -> Result<()> {
     }
 
     aok(())
+}
+
+async fn handle_longpress(sx: flume::Sender<ProtoGesture>, code: KeyCode) {
+    wrap_noncritical(sx.send_async(ProtoGesture {
+        kind: proto::Kind::LongPress,
+        key: code,
+    }))
+    .await;
 }

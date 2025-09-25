@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProtoGesture {
-    kind: Kind,
-    key: KeyCode,
+    pub kind: Kind,
+    pub key: KeyCode,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

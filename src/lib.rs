@@ -1,3 +1,5 @@
+#![allow(unreachable_code)]
+
 use application::WgpuLayerShellApp;
 use layer_shell::LayerShellOptions;
 
@@ -12,6 +14,7 @@ pub(crate) mod wgpu_state;
 
 pub mod passthru_app;
 pub mod proto;
+pub mod errors;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
