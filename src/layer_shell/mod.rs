@@ -93,7 +93,6 @@ pub(crate) struct WgpuLayerShellState {
     pub(crate) egui_state: egui_state::State,
     pub(crate) draw_request: Arc<RwLock<Option<Instant>>>,
 
-    pub text: ZwpTextInputManagerV3,
     /// The input method properties provided by the application to the IME.
     ///
     /// This state is cached here so that the window can automatically send the state to the IME as
@@ -204,6 +203,8 @@ impl WgpuLayerShellState {
             egui_state,
             wgpu_state,
             draw_request,
+
+            text_inputs: vec![],
         }
     }
 

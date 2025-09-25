@@ -7,14 +7,33 @@ use egui_wgpu::{
     Renderer, ScreenDescriptor,
 };
 
+// crates/egui-winit/src/lib.rs
 pub struct State {
     context: egui::Context,
-    input: egui::RawInput,
+    egui_input: egui::RawInput,
     renderer: Renderer,
     start_time: std::time::Instant,
+
+    /// track ime state
+    has_sent_ime_enabled: bool,
 }
 
 impl State {
+    pub fn ime_event_enable(&mut self) {
+        if !self.has_sent_ime_enabled {
+            self.egui_input
+                .events
+                .push(egui::Event::Ime(egui::ImeEvent::Enabled));
+            self.has_sent_ime_enabled = true;
+        }
+    }
+    pub fn ime_event_disable(&mut self) {
+        self.egui_input
+            .events
+            .push(egui::Event::Ime(egui::ImeEvent::Disabled));
+        self.has_sent_ime_enabled = false;
+    }
+
     pub fn new(
         context: egui::Context,
         device: &Device,
@@ -43,9 +62,10 @@ impl State {
 
         Self {
             context,
-            input,
+            egui_input: input,
             renderer,
             start_time: std::time::Instant::now(),
+            has_sent_ime_enabled: false,
         }
     }
 
@@ -57,11 +77,11 @@ impl State {
                 y: height as f32,
             },
         };
-        self.input.screen_rect = Some(screen_rect);
+        self.egui_input.screen_rect = Some(screen_rect);
     }
 
     pub(crate) fn input(&mut self) -> &mut egui::RawInput {
-        &mut self.input
+        &mut self.egui_input
     }
 
     pub fn context(&self) -> &egui::Context {
@@ -69,18 +89,18 @@ impl State {
     }
 
     pub fn modifiers(&self) -> egui::Modifiers {
-        self.input.modifiers
+        self.egui_input.modifiers
     }
 
     pub fn push_event(&mut self, event: egui::Event) {
-        self.input.events.push(event);
+        self.egui_input.events.push(event);
     }
 
     pub fn process_events(&mut self, run_ui: impl FnOnce(&Context)) -> FullOutput {
         // TODO: maybe we need to take input for a certain window / surface?
-        self.input.time = Some(self.start_time.elapsed().as_secs_f64());
+        self.egui_input.time = Some(self.start_time.elapsed().as_secs_f64());
 
-        let raw_input = self.input.take();
+        let raw_input = self.egui_input.take();
         /* if (&raw_input.events).len() > 0 {
             dbg!(&raw_input.events);
         } */

@@ -63,28 +63,19 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
         _conn: &Connection,
         _qhandle: &QueueHandle<WgpuLayerShellState>,
     ) {
-        let windows = state.windows.get_mut();
         let mut text_input_data = data.inner.lock().unwrap();
         match event {
             TextInputEvent::Enter { surface } => {
-                let window_id = crate::make_wid(&surface);
                 text_input_data.surface = Some(surface);
 
-                let mut window = match windows.get(&window_id) {
-                    Some(window) => window.lock().unwrap(),
-                    None => return,
-                };
-
-                if let Some(text_input_state) = window.text_input_state() {
+                if let Some(text_input_state) = &mut state.text_input_state {
                     text_input.set_state(Some(text_input_state), true);
                     // The input method doesn't have to reply anything, so a synthetic event
                     // carrying an empty state notifies the application about its presence.
-                    state
-                        .events_sink
-                        .push_window_event(WindowEvent::Ime(Ime::Enabled), window_id);
+                    state.egui_state.ime_event_enable();
                 }
 
-                window.text_input_entered(text_input);
+                state.text_input_entered(text_input);
             }
             TextInputEvent::Leave { surface } => {
                 text_input_data.surface = None;
@@ -93,20 +84,8 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
                 text_input.disable();
                 text_input.commit();
 
-                let window_id = crate::make_wid(&surface);
-
-                // XXX this check is essential, because `leave` could have a
-                // reference to nil surface...
-                let mut window = match windows.get(&window_id) {
-                    Some(window) => window.lock().unwrap(),
-                    None => return,
-                };
-
-                window.text_input_left(text_input);
-
-                state
-                    .events_sink
-                    .push_window_event(WindowEvent::Ime(Ime::Disabled), window_id);
+                state.text_input_left(text_input);
+                state.egui_state.ime_event_disable();
             }
             TextInputEvent::PreeditString {
                 text,
@@ -141,11 +120,6 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
                 });
             }
             TextInputEvent::Done { .. } => {
-                let window_id = match text_input_data.surface.as_ref() {
-                    Some(surface) => crate::make_wid(surface),
-                    None => return,
-                };
-
                 // The events are sent to the user separately, so
                 // CAUTION: events must always arrive in the order compatible with the application
                 // order specified by the text-input-v3 protocol:
@@ -161,30 +135,27 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
                 if let Some(DeleteSurroundingText { before, after }) =
                     text_input_data.pending_delete
                 {
-                    state.events_sink.push_window_event(
-                        WindowEvent::Ime(Ime::DeleteSurrounding {
-                            before_bytes: before,
-                            after_bytes: after,
-                        }),
-                        window_id,
-                    );
+                    // state.events_sink.push_window_event(
+                    //     WindowEvent::Ime(Ime::DeleteSurrounding {
+                    //         before_bytes: before,
+                    //         after_bytes: after,
+                    //     }),
+                    //     window_id,
+                    // );
                 }
 
                 // Clear preedit, unless all we'll be doing next is sending a new preedit.
                 if text_input_data.pending_commit.is_some()
                     || text_input_data.pending_preedit.is_none()
                 {
-                    state.events_sink.push_window_event(
-                        WindowEvent::Ime(Ime::Preedit(String::new(), None)),
-                        window_id,
-                    );
+                    state.egui_state.ime_event_disable();
                 }
 
                 // Send `Commit`.
                 if let Some(text) = text_input_data.pending_commit.take() {
                     state
-                        .events_sink
-                        .push_window_event(WindowEvent::Ime(Ime::Commit(text)), window_id);
+                        .egui_state
+                        .push_event(egui::Event::Ime(egui::ImeEvent::Commit(text)));
                 }
 
                 // Send preedit.
@@ -192,11 +163,10 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
                     let cursor_range = preedit
                         .cursor_begin
                         .map(|b| (b, preedit.cursor_end.unwrap_or(b)));
-
-                    state.events_sink.push_window_event(
-                        WindowEvent::Ime(Ime::Preedit(preedit.text, cursor_range)),
-                        window_id,
-                    );
+                    state.egui_state.ime_event_enable();
+                    state
+                        .egui_state
+                        .push_event(egui::Event::Ime(egui::ImeEvent::Preedit(preedit.text)));
                 }
             }
             _ => {}
