@@ -1,7 +1,7 @@
 use std::{cell::RefCell, sync::Arc};
 
 use crossbeam::queue::ArrayQueue;
-use smithay_client_toolkit::{reexports::calloop::{self, EventLoop}, shell::{WaylandSurface, wlr_layer::Layer}};
+use sctk::{reexports::calloop::{self, EventLoop}, shell::{WaylandSurface, wlr_layer::Layer}};
 
 use crate::{
     App, AppCreator, Result, layer_shell::{LayerShellOptions, passthrough::PassthroughShell}

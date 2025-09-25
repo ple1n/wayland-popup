@@ -12,6 +12,7 @@ pub(crate) mod egui_state;
 pub mod layer_shell;
 pub(crate) mod wgpu_state;
 
+pub mod text_input;
 pub mod errors;
 pub mod passthru_app;
 pub mod proto;

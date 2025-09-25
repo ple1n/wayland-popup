@@ -1,5 +1,5 @@
 use egui::{Modifiers, RawInput};
-use smithay_client_toolkit::{
+use sctk::{
     delegate_keyboard,
     seat::keyboard::{KeyEvent, KeyboardHandler, Keysym},
 };
@@ -21,7 +21,7 @@ impl KeyboardHandler for WgpuLayerShellState {
         _surface: &wl_surface::WlSurface,
         _serial: u32,
         _raw: &[u32],
-        _keysyms: &[smithay_client_toolkit::seat::keyboard::Keysym],
+        _keysyms: &[sctk::seat::keyboard::Keysym],
     ) {
         let input = self.egui_state.input();
         input.focused = true;
@@ -49,7 +49,7 @@ impl KeyboardHandler for WgpuLayerShellState {
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _serial: u32,
-        event: smithay_client_toolkit::seat::keyboard::KeyEvent,
+        event: sctk::seat::keyboard::KeyEvent,
     ) {
         handle_key_press(event, true, self.egui_state.input());
     }
@@ -60,7 +60,7 @@ impl KeyboardHandler for WgpuLayerShellState {
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _serial: u32,
-        event: smithay_client_toolkit::seat::keyboard::KeyEvent,
+        event: sctk::seat::keyboard::KeyEvent,
     ) {
         handle_key_press(event, false, self.egui_state.input());
     }
@@ -71,7 +71,7 @@ impl KeyboardHandler for WgpuLayerShellState {
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _serial: u32,
-        modifiers: smithay_client_toolkit::seat::keyboard::Modifiers,
+        modifiers: sctk::seat::keyboard::Modifiers,
         _layout: u32,
     ) {
         self.egui_state.input().modifiers = Modifiers {
@@ -87,14 +87,14 @@ impl KeyboardHandler for WgpuLayerShellState {
 
 impl KeyboardHandler for PassthroughShell {
     fn enter(
-        &mut self,
+        &mut self,  
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _surface: &wl_surface::WlSurface,
         _serial: u32,
         _raw: &[u32],
-        _keysyms: &[smithay_client_toolkit::seat::keyboard::Keysym],
+        _keysyms: &[sctk::seat::keyboard::Keysym],
     ) {
         let input = self.egui_state.input();
         input.focused = true;
@@ -122,7 +122,7 @@ impl KeyboardHandler for PassthroughShell {
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _serial: u32,
-        event: smithay_client_toolkit::seat::keyboard::KeyEvent,
+        event: sctk::seat::keyboard::KeyEvent,
     ) {
         handle_key_press(event, true, self.egui_state.input());
     }
@@ -133,7 +133,7 @@ impl KeyboardHandler for PassthroughShell {
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _serial: u32,
-        event: smithay_client_toolkit::seat::keyboard::KeyEvent,
+        event: sctk::seat::keyboard::KeyEvent,
     ) {
         handle_key_press(event, false, self.egui_state.input());
     }
@@ -144,7 +144,7 @@ impl KeyboardHandler for PassthroughShell {
         _qh: &QueueHandle<Self>,
         _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
         _serial: u32,
-        modifiers: smithay_client_toolkit::seat::keyboard::Modifiers,
+        modifiers: sctk::seat::keyboard::Modifiers,
         _layout: u32,
     ) {
         self.egui_state.input().modifiers = Modifiers {

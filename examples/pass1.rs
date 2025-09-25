@@ -1,7 +1,7 @@
 use anyhow::Result;
 use egui::{style::Spacing, Color32, Margin, Stroke, Style, Visuals, Widget};
 use layer_shell_wgpu_egui::{application::Msg, layer_shell::LayerShellOptions};
-use smithay_client_toolkit::shell::wlr_layer::KeyboardInteractivity;
+use sctk::shell::wlr_layer::KeyboardInteractivity;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();

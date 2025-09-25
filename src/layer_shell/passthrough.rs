@@ -5,7 +5,7 @@ use std::{
 
 use super::keyboard_handler::handle_key_press;
 use egui_wgpu::ScreenDescriptor;
-use smithay_client_toolkit::{
+use sctk::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_seat,
     output::{OutputHandler, OutputState},

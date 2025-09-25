@@ -9,16 +9,21 @@ use std::{
 
 use egui_wgpu::ScreenDescriptor;
 use keyboard_handler::handle_key_press;
-use smithay_client_toolkit::{
+use sctk::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_seat,
     output::{OutputHandler, OutputState},
     reexports::{
         calloop::LoopHandle,
         calloop_wayland_source::WaylandSource,
-        protocols::ext::background_effect::v1::client::{
-            ext_background_effect_manager_v1::{self, ExtBackgroundEffectManagerV1},
-            ext_background_effect_surface_v1,
+        protocols::{
+            ext::background_effect::v1::client::{
+                ext_background_effect_manager_v1::{self, ExtBackgroundEffectManagerV1},
+                ext_background_effect_surface_v1,
+            },
+            wp::text_input::zv3::client::{
+                zwp_text_input_manager_v3::ZwpTextInputManagerV3, zwp_text_input_v3::ZwpTextInputV3,
+            },
         },
         protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1,
     },
@@ -30,9 +35,12 @@ use smithay_client_toolkit::{
             Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface,
             LayerSurfaceConfigure,
         },
+        xdg::window::Window,
         WaylandSurface,
     },
 };
+
+use sctk;
 use wayland_client::{
     delegate_dispatch, delegate_noop,
     globals::registry_queue_init,
@@ -47,6 +55,7 @@ use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwi
 
 use crate::{
     egui_state::{self},
+    text_input::{TextInputClientState, TextInputState},
     wgpu_state::WgpuState,
     App,
 };
@@ -83,6 +92,16 @@ pub(crate) struct WgpuLayerShellState {
     pub(crate) wgpu_state: WgpuState,
     pub(crate) egui_state: egui_state::State,
     pub(crate) draw_request: Arc<RwLock<Option<Instant>>>,
+
+    pub text: ZwpTextInputManagerV3,
+    /// The input method properties provided by the application to the IME.
+    ///
+    /// This state is cached here so that the window can automatically send the state to the IME as
+    /// soon as it becomes available without application involvement.
+    pub text_input_state: Option<TextInputClientState>,
+    pub window_text_input_state: Option<TextInputState>,
+    /// The text inputs observed on the window.
+    pub text_inputs: Vec<ZwpTextInputV3>,
 }
 
 delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectManagerV1);
@@ -103,7 +122,7 @@ impl WgpuLayerShellState {
         let kdeblur = global_list
             .bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ())
             .unwrap();
-        
+
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
             .unwrap();
@@ -178,6 +197,8 @@ impl WgpuLayerShellState {
             has_frame_callback: false,
             is_configured: false,
 
+            window_text_input_state: TextInputState::new(&global_list, &queue_handle).ok(),
+            text_input_state: None,
             queue_handle,
 
             egui_state,

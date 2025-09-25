@@ -1,5 +1,5 @@
 use egui::{PointerButton, Vec2};
-use smithay_client_toolkit::{
+use sctk::{
     delegate_pointer,
     seat::pointer::{PointerEvent, PointerEventKind, PointerHandler},
 };

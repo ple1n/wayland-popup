@@ -10,7 +10,7 @@ use layer_shell_wgpu_egui::{
     proto::{self, ProtoGesture, DEFAULT_SERVE_PATH},
 };
 use log::warn;
-use smithay_client_toolkit::shell::wlr_layer::KeyboardInteractivity;
+use sctk::shell::wlr_layer::KeyboardInteractivity;
 use tokio::net::UnixStream;
 use tracing::level_filters::LevelFilter;
 
