@@ -7,7 +7,10 @@ use std::{
     u32,
 };
 
-use egui::ahash::{AHashMap, HashMap};
+use egui::{
+    ahash::{AHashMap, HashMap},
+    PlatformOutput,
+};
 use egui_wgpu::ScreenDescriptor;
 use keyboard_handler::handle_key_press;
 use sctk::{
@@ -270,7 +273,7 @@ impl WgpuLayerShellState {
         *self.draw_request.write().unwrap() = None;
         self.has_frame_callback = false;
         // crates/eframe/src/native/wgpu_integration.rs
-        
+
         let full_output = self
             .egui_state
             .process_events(|ctx| application.update(ctx));
@@ -312,6 +315,28 @@ impl WgpuLayerShellState {
         self.layer
             .wl_surface()
             .frame(&self.queue_handle, self.layer.wl_surface().clone());
+
+        // crates/egui-winit/src/lib.rs
+
+        let PlatformOutput {
+            commands,
+            cursor_icon,
+            events: _,                    // handled elsewhere
+            mutable_text_under_cursor: _, // only used in eframe web
+            ime,
+            #[cfg(feature = "accesskit")]
+            accesskit_update,
+            num_completed_passes: _,    // `egui::Context::run` handles this
+            request_discard_reasons: _, // `egui::Context::run` handles this
+        } = full_output.platform_output;
+
+        for (id, view) in full_output.viewport_output {
+            for cmd in view.commands {
+                match cmd {
+                    _ => {}
+                }
+            }
+        }
 
         surface_texture.present();
     }
