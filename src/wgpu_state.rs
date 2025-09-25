@@ -3,7 +3,10 @@ use std::ptr::NonNull;
 use raw_window_handle::{
     RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle,
 };
-use sctk::reexports::{protocols::ext::background_effect::v1::client::ext_background_effect_manager_v1, protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1};
+use sctk::reexports::{
+    protocols::ext::background_effect::v1::client::ext_background_effect_manager_v1,
+    protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1,
+};
 use thiserror::Error;
 use wayland_backend::client::Backend;
 use wayland_client::{protocol::wl_surface::WlSurface, Proxy};
@@ -37,18 +40,17 @@ use ext_background_effect_manager_v1::*;
 
 impl WgpuState {
     pub fn new(backend: &Backend, wl_surface: &WlSurface) -> Result<Self, WgpuStateError> {
-        let instance = Instance::new(InstanceDescriptor {
+        let instance = Instance::new(&InstanceDescriptor {
             backends: Backends::all(),
             ..Default::default()
         });
 
-        let w_display = WaylandDisplayHandle::new(
-            NonNull::new(backend.display_ptr() as *mut _).ok_or(
+        let w_display =
+            WaylandDisplayHandle::new(NonNull::new(backend.display_ptr() as *mut _).ok_or(
                 WgpuStateError::NullPointerError("display of backend".to_string()),
-            )?,
-        );
+            )?);
         let raw_display_handle = RawDisplayHandle::Wayland(w_display);
-        
+
         let raw_window_handle = RawWindowHandle::Wayland(WaylandWindowHandle::new(
             NonNull::new(wl_surface.id().as_ptr() as *mut _).ok_or(
                 WgpuStateError::NullPointerError("wl_surface id".to_string()),
@@ -66,10 +68,10 @@ impl WgpuState {
             compatible_surface: Some(&surface),
             ..Default::default()
         }))
-        .ok_or(WgpuStateError::NoAdapterError)?;
+        .unwrap();
 
         let (device, queue) =
-            pollster::block_on(adapter.request_device(&Default::default(), None))?;
+            pollster::block_on(adapter.request_device(&Default::default()))?;
 
         let surface_capabilities = surface.get_capabilities(&adapter);
         let texture_format = surface_capabilities

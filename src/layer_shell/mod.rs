@@ -318,7 +318,7 @@ impl WgpuLayerShellState {
 
         // crates/egui-winit/src/lib.rs
 
-        let PlatformOutput {
+        let egui::PlatformOutput {
             commands,
             cursor_icon,
             events: _,                    // handled elsewhere
@@ -328,6 +328,7 @@ impl WgpuLayerShellState {
             accesskit_update,
             num_completed_passes: _,    // `egui::Context::run` handles this
             request_discard_reasons: _, // `egui::Context::run` handles this
+            ..
         } = full_output.platform_output;
 
         for (id, view) in full_output.viewport_output {

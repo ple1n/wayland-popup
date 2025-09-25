@@ -49,11 +49,20 @@ impl State {
             ..Default::default()
         };
 
+        // Controls whether to apply dithering to minimize banding artifacts.
+        //
+        // Dithering assumes an sRGB output and thus will apply noise to any input value that lies between
+        // two 8bit values after applying the sRGB OETF function, i.e. if it's not a whole 8bit value in "gamma space".
+        // This means that only inputs from texture interpolation and vertex colors should be affected in practice.
+        //
+        // Defaults to true.
+
         let renderer = Renderer::new(
             device,
             output_color_format,
             output_depth_format,
             msaa_samples,
+            true,
         );
 
         // input
@@ -98,7 +107,7 @@ impl State {
         self.egui_input.events.push(event);
     }
 
-    pub fn process_events(&mut self, run_ui: impl FnOnce(&Context)) -> FullOutput {
+    pub fn process_events(&mut self, run_ui: impl FnMut(&Context)) -> FullOutput {
         // TODO: maybe we need to take input for a certain window / surface?
         self.egui_input.time = Some(self.start_time.elapsed().as_secs_f64());
 
@@ -126,7 +135,7 @@ impl State {
         /* for output in full_output.viewport_output.values() {
             dbg!(&output.repaint_delay);
         } */
-        
+
         //dbg!(&full_output.);
 
         // TODO: implement platform output handling
@@ -155,9 +164,8 @@ impl State {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
-        });
+        }).forget_lifetime();
         self.renderer.render(&mut rpass, &tris, &screen_descriptor);
-        drop(rpass);
         for x in &textures_delta.free {
             self.renderer.free_texture(x)
         }
