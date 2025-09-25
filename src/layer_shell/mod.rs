@@ -7,6 +7,7 @@ use std::{
     u32,
 };
 
+use egui::ahash::{AHashMap, HashMap};
 use egui_wgpu::ScreenDescriptor;
 use keyboard_handler::handle_key_press;
 use sctk::{
@@ -41,6 +42,8 @@ use sctk::{
 };
 
 use sctk;
+use tracing::warn;
+use wayland_backend::client::ObjectId;
 use wayland_client::{
     delegate_dispatch, delegate_noop,
     globals::registry_queue_init,
@@ -55,7 +58,7 @@ use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwi
 
 use crate::{
     egui_state::{self},
-    text_input::{TextInputClientState, TextInputState},
+    text_input::{TextInputClientState, TextInputData, TextInputState},
     wgpu_state::WgpuState,
     App,
 };
@@ -72,7 +75,7 @@ pub struct LayerShellOptions {
     pub keyboard_interactivity: Option<KeyboardInteractivity>,
 }
 
-pub(crate) struct WgpuLayerShellState {
+pub struct WgpuLayerShellState {
     //event_loop: Arc<EventLoop<'static, Self>>,
     loop_handle: LoopHandle<'static, Self>,
     registry_state: RegistryState,
@@ -101,6 +104,12 @@ pub(crate) struct WgpuLayerShellState {
     pub window_text_input_state: Option<TextInputState>,
     /// The text inputs observed on the window.
     pub text_inputs: Vec<ZwpTextInputV3>,
+    pub seat_map: AHashMap<ObjectId, PerSeat>,
+}
+
+#[derive(Default)]
+pub struct PerSeat {
+    pub text_input: Option<Arc<ZwpTextInputV3>>,
 }
 
 delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectManagerV1);
@@ -113,7 +122,7 @@ impl WgpuLayerShellState {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
         let queue_handle: Arc<QueueHandle<WgpuLayerShellState>> = Arc::new(event_queue.handle());
-
+        let globals = &global_list;
         // global_list
         //     .bind::<ExtBackgroundEffectManagerV1, _, _>(queue_handle.as_ref(), 0..=1, ())
         //     .unwrap();
@@ -150,11 +159,25 @@ impl WgpuLayerShellState {
         layer_surface.set_opaque_region(None);
         layer_surface.commit();
 
+        let seat_state = SeatState::new(globals, &queue_handle);
+
+        let mut seats = AHashMap::default();
+        for seat in seat_state.seats() {
+            seats.insert(seat.id(), PerSeat::default());
+        }
+
+        let passthrough = false;
+
+        if passthrough {
+            let region = compositor_state
+                .wl_compositor()
+                .create_region(&queue_handle, ());
+            layer_surface.set_input_region(Some(&region));
+        }
+
         let region = compositor_state
             .wl_compositor()
             .create_region(&queue_handle, ());
-        region.add(0, 0, 1000, 1000);
-
         let blur: OrgKdeKwinBlur = kdeblur.create(layer_surface.wl_surface(), &queue_handle, ());
         blur.set_region(Some(&region));
         blur.commit();
@@ -180,11 +203,15 @@ impl WgpuLayerShellState {
             None,
             1,
         );
-
+        let window_text_input_state = TextInputState::new(&global_list, &queue_handle).ok();
+        println!(
+            "window_text_input_state {}",
+            window_text_input_state.is_some()
+        );
         WgpuLayerShellState {
             loop_handle: loop_handle.clone(),
             registry_state: RegistryState::new(&global_list),
-            seat_state: SeatState::new(&global_list, &queue_handle),
+            seat_state,
             output_state: OutputState::new(&global_list, &queue_handle),
 
             exit: false,
@@ -196,7 +223,7 @@ impl WgpuLayerShellState {
             has_frame_callback: false,
             is_configured: false,
 
-            window_text_input_state: TextInputState::new(&global_list, &queue_handle).ok(),
+            window_text_input_state,
             text_input_state: None,
             queue_handle,
 
@@ -205,6 +232,7 @@ impl WgpuLayerShellState {
             draw_request,
 
             text_inputs: vec![],
+            seat_map: seats,
         }
     }
 
@@ -403,14 +431,15 @@ impl LayerShellHandler for WgpuLayerShellState {
             .set_size(configure.new_size.0, configure.new_size.1);
     }
 }
-
 delegate_seat!(WgpuLayerShellState);
 impl SeatHandler for WgpuLayerShellState {
     fn seat_state(&mut self) -> &mut SeatState {
         &mut self.seat_state
     }
 
-    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
+    fn new_seat(&mut self, _: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat) {
+        self.seat_map.insert(seat.id(), Default::default());
+    }
 
     fn new_capability(
         &mut self,
@@ -419,6 +448,14 @@ impl SeatHandler for WgpuLayerShellState {
         seat: wl_seat::WlSeat,
         capability: Capability,
     ) {
+        let seat_state = match self.seat_map.get_mut(&seat.id()) {
+            Some(seat_state) => seat_state,
+            None => {
+                warn!("Received wl_seat::new_capability for unknown seat");
+                return;
+            }
+        };
+
         match capability {
             Capability::Pointer if self.pointer.is_none() => {
                 let pointer = self
@@ -444,13 +481,26 @@ impl SeatHandler for WgpuLayerShellState {
             }
             _ => {}
         }
+
+        if let Some(text_input_state) = seat_state
+            .text_input
+            .is_none()
+            .then_some(self.window_text_input_state.as_ref())
+            .flatten()
+        {
+            seat_state.text_input = Some(Arc::new(text_input_state.get_text_input(
+                &seat,
+                &qh,
+                TextInputData::default(),
+            )));
+        }
     }
 
     fn remove_capability(
         &mut self,
         _conn: &Connection,
-        _: &QueueHandle<Self>,
-        _: wl_seat::WlSeat,
+        qh: &QueueHandle<Self>,
+        seat: wl_seat::WlSeat,
         capability: Capability,
     ) {
         match capability {
@@ -468,7 +518,9 @@ impl SeatHandler for WgpuLayerShellState {
         }
     }
 
-    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
+    fn remove_seat(&mut self, _: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat) {
+        self.seat_map.remove(&seat.id());
+    }
 }
 
 // delegate_dispatch!(WgpuLayerShellState: [ExtBackgroundEffectManagerV1: ()] => WgpuLayerShellState);

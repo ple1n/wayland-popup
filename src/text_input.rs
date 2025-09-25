@@ -10,7 +10,7 @@ use sctk::reexports::protocols::wp::text_input::zv3::client::zwp_text_input_mana
 use sctk::reexports::protocols::wp::text_input::zv3::client::zwp_text_input_v3::{
     ContentHint, ContentPurpose, Event as TextInputEvent, ZwpTextInputV3,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::layer_shell::WgpuLayerShellState;
 
@@ -63,6 +63,7 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
         _conn: &Connection,
         _qhandle: &QueueHandle<WgpuLayerShellState>,
     ) {
+        info!("text {:?}", &event);
         let mut text_input_data = data.inner.lock().unwrap();
         match event {
             TextInputEvent::Enter { surface } => {

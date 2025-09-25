@@ -2,10 +2,13 @@ use anyhow::Result;
 use egui::{style::Spacing, Color32, Margin, Stroke, Style, Visuals};
 use layer_shell_wgpu_egui::{application::Msg, layer_shell::LayerShellOptions};
 use sctk::shell::wlr_layer::KeyboardInteractivity;
+use tracing::level_filters::LevelFilter;
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
-
+    tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::INFO)
+        .init();
+    
     let options = LayerShellOptions {
         width: 500,
         height: 300,

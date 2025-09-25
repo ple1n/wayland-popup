@@ -6,6 +6,7 @@ use egui_wgpu::{
     },
     Renderer, ScreenDescriptor,
 };
+use tracing::info;
 
 // crates/egui-winit/src/lib.rs
 pub struct State {
@@ -21,6 +22,7 @@ pub struct State {
 impl State {
     pub fn ime_event_enable(&mut self) {
         if !self.has_sent_ime_enabled {
+            info!("enable ime");
             self.egui_input
                 .events
                 .push(egui::Event::Ime(egui::ImeEvent::Enabled));
