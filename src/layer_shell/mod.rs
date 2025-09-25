@@ -184,6 +184,7 @@ impl WgpuLayerShellState {
 
         let wgpu_state = WgpuState::new(&connection.backend(), layer_surface.wl_surface())
             .expect("Could not create wgpu state");
+        let window_text_input_state = TextInputState::new(&global_list, &queue_handle).ok();
 
         let egui_context = egui::Context::default();
         let draw_request = Arc::new(RwLock::new(None));
@@ -203,7 +204,6 @@ impl WgpuLayerShellState {
             None,
             1,
         );
-        let window_text_input_state = TextInputState::new(&global_list, &queue_handle).ok();
         println!(
             "window_text_input_state {}",
             window_text_input_state.is_some()
@@ -269,7 +269,8 @@ impl WgpuLayerShellState {
     pub(crate) fn draw(&mut self, application: &mut dyn App) {
         *self.draw_request.write().unwrap() = None;
         self.has_frame_callback = false;
-
+        // crates/eframe/src/native/wgpu_integration.rs
+        
         let full_output = self
             .egui_state
             .process_events(|ctx| application.update(ctx));

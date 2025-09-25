@@ -70,10 +70,13 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
                 text_input_data.surface = Some(surface);
 
                 if let Some(text_input_state) = &mut state.text_input_state {
+                    warn!("text_input_state Some");
                     text_input.set_state(Some(text_input_state), true);
                     // The input method doesn't have to reply anything, so a synthetic event
                     // carrying an empty state notifies the application about its presence.
                     state.egui_state.ime_event_enable();
+                } else {
+                    warn!("text_input_state none")
                 }
 
                 state.text_input_entered(text_input);

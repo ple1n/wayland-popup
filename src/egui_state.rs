@@ -125,7 +125,7 @@ impl State {
         /* for output in full_output.viewport_output.values() {
             dbg!(&output.repaint_delay);
         } */
-
+        
         //dbg!(&full_output.);
 
         // TODO: implement platform output handling
