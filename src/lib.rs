@@ -12,14 +12,14 @@ pub(crate) mod egui_state;
 pub mod layer_shell;
 pub(crate) mod wgpu_state;
 
+pub mod errors;
 pub mod passthru_app;
 pub mod proto;
-pub mod errors;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
 
-pub type AppCreator = Box<dyn FnOnce(&egui::Context) -> anyhow::Result<Box<dyn App>>>;
+pub type AppCreator = Box<dyn FnOnce(&egui::Context, MsgQueue) -> anyhow::Result<Box<dyn App>>>;
 
 pub trait App {
     fn update(&mut self, ctx: &egui::Context);
@@ -43,26 +43,6 @@ pub fn run_layer(
     (q, app)
 }
 
-pub fn run_layer_simple(
-    options: LayerShellOptions,
-    update_fun: impl FnMut(&egui::Context) + 'static,
-) -> (MsgQueue, WgpuLayerShellApp) {
-    struct SimpleLayerWrapper<U> {
-        update_fun: U,
-    }
-
-    impl<U: FnMut(&egui::Context) + 'static> App for SimpleLayerWrapper<U> {
-        fn update(&mut self, ctx: &egui::Context) {
-            (self.update_fun)(ctx);
-        }
-    }
-
-    run_layer(
-        options,
-        Box::new(|_| Ok(Box::new(SimpleLayerWrapper { update_fun }))),
-    )
-}
-
 pub fn run_layer_pass(
     options: LayerShellOptions,
     app_creator: AppCreator,
@@ -72,23 +52,48 @@ pub fn run_layer_pass(
     (q, app)
 }
 
-pub fn run_layer_simple_pass(
+pub fn run_layer_simple(
     options: LayerShellOptions,
-    update_fun: impl FnMut(&egui::Context) + 'static,
-) -> (MsgQueue, PassthruApp) {
+    update_fun: impl FnMut(&egui::Context, &MsgQueue) + 'static,
+) -> (MsgQueue, WgpuLayerShellApp) {
     struct SimpleLayerWrapper<U> {
         update_fun: U,
+        msg: MsgQueue,
     }
 
-    impl<U: FnMut(&egui::Context) + 'static> App for SimpleLayerWrapper<U> {
+    impl<U: FnMut(&egui::Context, &MsgQueue) + 'static> App for SimpleLayerWrapper<U> {
         fn update(&mut self, ctx: &egui::Context) {
-            (self.update_fun)(ctx);
+            (self.update_fun)(ctx, &self.msg);
         }
     }
 
-    run_layer_pass(
+    let (sx, e) = run_layer(
         options,
-        Box::new(|_| Ok(Box::new(SimpleLayerWrapper { update_fun }))),
-    )
+        Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
+    );
+
+    (sx, e)
 }
 
+pub fn run_layer_simple_pass(
+    options: LayerShellOptions,
+    update_fun: impl FnMut(&egui::Context, &MsgQueue) + 'static,
+) -> (MsgQueue, PassthruApp) {
+    struct SimpleLayerWrapper<U> {
+        update_fun: U,
+        msg: MsgQueue,
+    }
+
+    impl<U: FnMut(&egui::Context, &MsgQueue) + 'static> App for SimpleLayerWrapper<U> {
+        fn update(&mut self, ctx: &egui::Context) {
+            (self.update_fun)(ctx, &self.msg);
+        }
+    }
+
+    let (sx, e) = run_layer_pass(
+        options,
+        Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
+    );
+
+    (sx, e)
+}

@@ -11,3 +11,10 @@ pub async fn wrap_noncritical<T, E: Debug>(f: impl Future<Output = Result<T, E>>
         tracing::warn!("{:?}", e);
     }
 }
+
+pub fn wrap_noncritical_sync<T, E: Debug>(f: impl FnOnce() -> Result<T, E>) {
+    let k = f();
+    if let Err(e) = k {
+        tracing::warn!("{:?}", e);
+    }
+}

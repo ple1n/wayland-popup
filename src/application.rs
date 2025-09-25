@@ -53,7 +53,7 @@ impl WgpuLayerShellApp {
             Self {
                 // TODO: find better way to handle this potential error
                 application: RefCell::new(
-                    app_creator(&layer_shell_state.egui_state.context())
+                    app_creator(&layer_shell_state.egui_state.context(), sx)
                         .expect("could not create app"),
                 ),
                 event_loop,

@@ -1,10 +1,23 @@
 use anyhow::Result;
+use async_bincode::tokio::AsyncBincodeStream;
 use egui::{style::Spacing, Color32, Margin, Stroke, Style, Visuals};
-use layer_shell_wgpu_egui::{application::Msg, layer_shell::LayerShellOptions};
+use evdev::KeyCode;
+use futures::StreamExt;
+use layer_shell_wgpu_egui::errors::*;
+use layer_shell_wgpu_egui::{
+    application::Msg,
+    layer_shell::LayerShellOptions,
+    proto::{self, ProtoGesture, DEFAULT_SERVE_PATH},
+};
+use log::warn;
 use smithay_client_toolkit::shell::wlr_layer::KeyboardInteractivity;
+use tokio::net::UnixStream;
+use tracing::level_filters::LevelFilter;
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::INFO)
+        .init();
 
     let options = LayerShellOptions {
         width: 500,
@@ -22,6 +35,11 @@ fn main() -> anyhow::Result<()> {
         let mut li = Visuals::dark();
         li.override_text_color = Some(Color32::WHITE.gamma_multiply(0.7));
         ctx.set_visuals(li);
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::Escape) {
+                let _ = sx.send(Msg::Hide(true));
+            };
+        });
         egui::CentralPanel::default().frame(egui::Frame::none().fill(Color32::WHITE.gamma_multiply(0.1)).inner_margin(Margin::same(15.))).show(ctx, |ui| {
             ui.heading("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.");
             ui.horizontal(|ui| {
@@ -37,40 +55,42 @@ fn main() -> anyhow::Result<()> {
         });
     });
 
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
     std::thread::spawn(move || {
-        use std::io::{self, Write};
-        println!("Type 'h' to hide the window, 'unhide' to show it, or 'quit' to exit:");
-        loop {
-            print!("> ");
-            io::stdout().flush().unwrap();
-            let mut input = String::new();
-            if io::stdin().read_line(&mut input).is_err() {
-                println!("Failed to read input");
-                continue;
-            }
-            let cmd = input.trim();
-            match cmd {
-                "h" => {
-                    if let Err(e) = msg.send(Msg::Hide(true)) {
-                        println!("Failed to hide window");
+        wrap_noncritical_sync(move || {
+            rt.block_on(async move {
+                let conn = UnixStream::connect(DEFAULT_SERVE_PATH).await?;
+                let mut fm: AsyncBincodeStream<
+                    UnixStream,
+                    ProtoGesture,
+                    ProtoGesture,
+                    async_bincode::AsyncDestination,
+                > = AsyncBincodeStream::from(conn).for_async();
+                loop {
+                    let ev = fm.next().await;
+                    if let Some(ev) = ev {
+                        if let Ok(ev) = ev {
+                            if ev.key == KeyCode::KEY_LEFTCTRL {
+                                match ev.kind {
+                                    proto::Kind::LongPress => {
+                                        let _ = msg.send(Msg::Hide(false));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        } else {
+                            warn!("{:?}", ev)
+                        }
                     } else {
-                        println!("Window hidden.");
+                        warn!("connection to daemon ended");
+                        break;
                     }
                 }
-                "s" => {
-                    if let Err(e) = msg.send(Msg::Hide(false)) {
-                        println!("Failed to show window");
-                    } else {
-                        println!("Window shown.");
-                    }
-                }
-                "quit" => {
-                    println!("Exiting...");
-                    break;
-                }
-                _ => println!("Unknown command: {}", cmd),
-            }
-        }
+                aok(())
+            })
+        });
     });
 
     app.run()?;

@@ -14,6 +14,13 @@ surface creation at
 wayland-clipboard-listener can be directly used, which gives a stream over, currrent text selection. 
 It seems to require no extra privilege, not even extra supplemental gid. 
 
+```
+Caused by:
+    Requested alpha mode PreMultiplied is not in the list of supported alpha modes: [Opaque]
+```
+
+I had no idea what part was responsible but I then installed vulkan-intel, and it got fixed. I was on Arch.
+
 ## philosophy
 
 - minimal dependency

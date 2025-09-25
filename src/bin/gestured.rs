@@ -4,6 +4,9 @@
 //!
 
 use std::collections::HashMap;
+use std::fs::Permissions;
+use std::fs::set_permissions;
+use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -43,8 +46,12 @@ async fn main() -> Result<()> {
         error!("no input device found. check permissions");
         return aok(());
     }
-
-    let sock = UnixListener::bind(DEFAULT_SERVE_PATH)?;
+    
+    let sock_path = DEFAULT_SERVE_PATH;
+    warn!("bind socket at {}", &sock_path);
+    let _ = std::fs::remove_file(sock_path);
+    let sock = UnixListener::bind(sock_path)?;
+    set_permissions(sock_path, PermissionsExt::from_mode(0o777))?;
     let (brsx, rx) = flume::unbounded::<proto::ProtoGesture>();
 
     tokio::spawn(async move {
