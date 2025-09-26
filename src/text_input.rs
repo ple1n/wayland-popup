@@ -63,11 +63,9 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
         _conn: &Connection,
         _qhandle: &QueueHandle<WgpuLayerShellState>,
     ) {
-        info!("text {:?}", &event);
         let mut text_input_data = data.inner.lock().unwrap();
         match event {
             TextInputEvent::Enter { surface } => {
-                warn!("enter");
                 text_input_data.surface = Some(surface);
 
                 if state.ime_allowed() {

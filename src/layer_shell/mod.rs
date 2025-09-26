@@ -227,28 +227,6 @@ impl WgpuLayerShellState {
             return false;
         }
 
-        if allowed {
-            self.request_ime_update(ImeRequest::Enable(
-                ImeEnableRequest::new(
-                    ImeCapabilities::new()
-                        .with_hint_and_purpose()
-                        .with_cursor_area()
-                        .with_surrounding_text(),
-                    ImeRequestData::default()
-                        .with_hint_and_purpose(ImeHint::NONE, ImePurpose::Normal)
-                        .with_cursor_area(
-                            LogicalPosition::new(0, 0).into(),
-                            LogicalSize::new(20, 20).into(),
-                        )
-                        .with_surrounding_text(
-                            ImeSurroundingText::new("test".to_owned(), 0, 0).unwrap(),
-                        ),
-                )
-                .unwrap(),
-            ))
-            .unwrap();
-        }
-
         self.ime_allowed = allowed;
 
         let mut applied = false;
