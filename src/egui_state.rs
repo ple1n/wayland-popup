@@ -8,18 +8,33 @@ use egui_wgpu::{
 };
 use tracing::info;
 
+use crate::layer_shell::WgpuLayerShellState;
+
 // crates/egui-winit/src/lib.rs
 pub struct State {
-    context: egui::Context,
+    pub context: egui::Context,
     egui_input: egui::RawInput,
     renderer: Renderer,
     start_time: std::time::Instant,
 
     /// track ime state
     has_sent_ime_enabled: bool,
+
+    pub allow_ime: bool,
+    pub ime_rect_px: Option<egui::Rect>,
+    pub pointer_pos_in_points: Option<egui::Pos2>,
 }
 
 impl State {
+    /// Returns [`false`] or the last value that [`Window::set_ime_allowed()`] was called with, used for debouncing.
+    pub fn allow_ime(&self) -> bool {
+        self.allow_ime
+    }
+    /// Set the last value that [`Window::set_ime_allowed()`] was called with.
+    pub fn set_allow_ime(&mut self, allow: bool) {
+        self.allow_ime = allow;
+    }
+
     pub fn ime_event_enable(&mut self) {
         if !self.has_sent_ime_enabled {
             info!("enable ime");
@@ -77,6 +92,9 @@ impl State {
             renderer,
             start_time: std::time::Instant::now(),
             has_sent_ime_enabled: false,
+            allow_ime: false,
+            ime_rect_px: None,
+            pointer_pos_in_points: None,
         }
     }
 
@@ -151,20 +169,22 @@ impl State {
         }
         self.renderer
             .update_buffers(device, queue, encoder, &tris, &screen_descriptor);
-        let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("egui main render pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: window_surface_view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(egui_wgpu::wgpu::Color::TRANSPARENT),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        }).forget_lifetime();
+        let mut rpass = encoder
+            .begin_render_pass(&RenderPassDescriptor {
+                label: Some("egui main render pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: window_surface_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(egui_wgpu::wgpu::Color::TRANSPARENT),
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            })
+            .forget_lifetime();
         self.renderer.render(&mut rpass, &tris, &screen_descriptor);
         for x in &textures_delta.free {
             self.renderer.free_texture(x)

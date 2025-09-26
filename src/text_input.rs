@@ -67,16 +67,13 @@ impl Dispatch<ZwpTextInputV3, TextInputData, WgpuLayerShellState> for TextInputS
         let mut text_input_data = data.inner.lock().unwrap();
         match event {
             TextInputEvent::Enter { surface } => {
+                warn!("enter");
                 text_input_data.surface = Some(surface);
 
-                if let Some(text_input_state) = &mut state.text_input_state {
-                    warn!("text_input_state Some");
-                    text_input.set_state(Some(text_input_state), true);
-                    // The input method doesn't have to reply anything, so a synthetic event
-                    // carrying an empty state notifies the application about its presence.
-                    state.egui_state.ime_event_enable();
-                } else {
-                    warn!("text_input_state none")
+                if state.ime_allowed() {
+                    text_input.enable();
+                    text_input.set_content_type_by_purpose(state.ime_purpose);
+                    text_input.commit();
                 }
 
                 state.text_input_entered(text_input);
@@ -182,9 +179,21 @@ pub trait ZwpTextInputV3Ext {
     /// Applies the entire state atomically to the input method. It will skip the "enable" request
     /// if `already_enabled` is `true`.
     fn set_state(&self, state: Option<&ClientState>, send_enable: bool);
+
+    fn set_content_type_by_purpose(&self, purpose: ImePurpose);
 }
 
 impl ZwpTextInputV3Ext for ZwpTextInputV3 {
+    fn set_content_type_by_purpose(&self, purpose: ImePurpose) {
+        let (hint, purpose) = match purpose {
+            ImePurpose::Normal => (ContentHint::None, ContentPurpose::Normal),
+            ImePurpose::Password => (ContentHint::SensitiveData, ContentPurpose::Password),
+            ImePurpose::Terminal => (ContentHint::None, ContentPurpose::Terminal),
+            _ => (ContentHint::None, ContentPurpose::Normal),
+        };
+        self.set_content_type(hint, purpose);
+    }
+
     fn set_state(&self, state: Option<&ClientState>, send_enable: bool) {
         let state = match state {
             Some(state) => state,

@@ -7,9 +7,10 @@ use std::{
     u32,
 };
 
+use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Position, Size};
 use egui::{
     ahash::{AHashMap, HashMap},
-    PlatformOutput,
+    PlatformOutput, ViewportCommand,
 };
 use egui_wgpu::ScreenDescriptor;
 use keyboard_handler::handle_key_press;
@@ -45,7 +46,7 @@ use sctk::{
 };
 
 use sctk;
-use tracing::warn;
+use tracing::{info, warn};
 use wayland_backend::client::ObjectId;
 use wayland_client::{
     delegate_dispatch, delegate_noop,
@@ -61,7 +62,10 @@ use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwi
 
 use crate::{
     egui_state::{self},
-    text_input::{TextInputClientState, TextInputData, TextInputState},
+    text_input::{
+        ImeCapabilities, ImeEnableRequest, ImeHint, ImePurpose, ImeRequest, ImeRequestData,
+        ImeSurroundingText, TextInputClientState, TextInputData, TextInputState, ZwpTextInputV3Ext,
+    },
     wgpu_state::WgpuState,
     App,
 };
@@ -108,6 +112,12 @@ pub struct WgpuLayerShellState {
     /// The text inputs observed on the window.
     pub text_inputs: Vec<ZwpTextInputV3>,
     pub seat_map: AHashMap<ObjectId, PerSeat>,
+
+    /// The current IME purpose.
+    pub ime_purpose: ImePurpose,
+
+    /// Whether the IME input is allowed for that window.
+    ime_allowed: bool,
 }
 
 #[derive(Default)]
@@ -120,7 +130,142 @@ delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlurManager);
 delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlur);
 delegate_noop!(WgpuLayerShellState: ignore WlRegion);
 
+/// Calculate the `pixels_per_point` for a given window, given the current egui zoom factor
+pub fn pixels_per_point(egui_ctx: &egui::Context, scale: f32) -> f32 {
+    let native_pixels_per_point = scale;
+    let egui_zoom_factor = egui_ctx.zoom_factor();
+    egui_zoom_factor * native_pixels_per_point
+}
+
 impl WgpuLayerShellState {
+    /// Whether the IME is allowed.
+    #[inline]
+    pub fn ime_allowed(&self) -> bool {
+        self.ime_allowed
+    }
+
+    pub fn set_ime_purpose(&mut self, purpose: ImePurpose) {
+        self.ime_purpose = purpose;
+
+        for text_input in &self.text_inputs {
+            text_input.set_content_type_by_purpose(purpose);
+            text_input.commit();
+        }
+    }
+
+    pub fn set_ime_cursor_area(&self, position: Position, size: Size) {
+        if self.ime_allowed() {
+            let scale_factor = self.scale_factor();
+            let position = position.to_logical(scale_factor);
+            let size = size.to_logical(scale_factor);
+            self.set_ime_cursor_area_inner(position, size);
+        }
+    }
+
+    /// Set the IME position.
+    pub fn set_ime_cursor_area_inner(
+        &self,
+        position: LogicalPosition<u32>,
+        size: LogicalSize<u32>,
+    ) {
+        // FIXME: This won't fly unless user will have a way to request IME window per seat, since
+        // the ime windows will be overlapping, but winit doesn't expose API to specify for
+        // which seat we're setting IME position.
+        let (x, y) = (position.x as i32, position.y as i32);
+        let (width, height) = (size.width as i32, size.height as i32);
+        for text_input in self.text_inputs.iter() {
+            text_input.set_cursor_rectangle(x, y, width, height);
+            text_input.commit();
+        }
+    }
+
+    pub fn handle_platform(&mut self, platform_output: egui::PlatformOutput) {
+        let egui::PlatformOutput {
+            commands,
+            cursor_icon,
+            events: _,                    // handled elsewhere
+            mutable_text_under_cursor: _, // only used in eframe web
+            ime,
+            #[cfg(feature = "accesskit")]
+            accesskit_update,
+            num_completed_passes: _,    // `egui::Context::run` handles this
+            request_discard_reasons: _, // `egui::Context::run` handles this
+            ..
+        } = platform_output;
+
+        if let Some(ime) = ime {
+            self.set_ime_allowed(true);
+
+            let pixels_per_point =
+                pixels_per_point(self.egui_state.context(), self.scale_factor() as f32);
+            let ime_rect_px = pixels_per_point * ime.rect;
+            if self.egui_state.ime_rect_px != Some(ime_rect_px)
+                || self.egui_state.context().input(|i| !i.events.is_empty())
+            {
+                self.egui_state.ime_rect_px = Some(ime_rect_px);
+                self.set_ime_cursor_area(
+                    dpi::PhysicalPosition {
+                        x: ime_rect_px.min.x,
+                        y: ime_rect_px.min.y,
+                    }
+                    .into(),
+                    dpi::PhysicalSize {
+                        width: ime_rect_px.width(),
+                        height: ime_rect_px.height(),
+                    }
+                    .into(),
+                );
+            }
+        } else {
+            self.egui_state.ime_rect_px = None;
+        }
+    }
+
+    /// Returns `true` if the requested state was applied.
+    pub fn set_ime_allowed(&mut self, allowed: bool) -> bool {
+        if self.ime_allowed == allowed {
+            return false;
+        }
+
+        if allowed {
+            self.request_ime_update(ImeRequest::Enable(
+                ImeEnableRequest::new(
+                    ImeCapabilities::new()
+                        .with_hint_and_purpose()
+                        .with_cursor_area()
+                        .with_surrounding_text(),
+                    ImeRequestData::default()
+                        .with_hint_and_purpose(ImeHint::NONE, ImePurpose::Normal)
+                        .with_cursor_area(
+                            LogicalPosition::new(0, 0).into(),
+                            LogicalSize::new(20, 20).into(),
+                        )
+                        .with_surrounding_text(
+                            ImeSurroundingText::new("test".to_owned(), 0, 0).unwrap(),
+                        ),
+                )
+                .unwrap(),
+            ))
+            .unwrap();
+        }
+
+        self.ime_allowed = allowed;
+
+        let mut applied = false;
+        for text_input in &self.text_inputs {
+            applied = true;
+            if allowed {
+                text_input.enable();
+                text_input.set_content_type_by_purpose(self.ime_purpose);
+            } else {
+                text_input.disable();
+            }
+            text_input.commit();
+        }
+
+        applied
+    }
+
     pub(crate) fn new(loop_handle: LoopHandle<'static, Self>, options: LayerShellOptions) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
@@ -236,6 +381,8 @@ impl WgpuLayerShellState {
 
             text_inputs: vec![],
             seat_map: seats,
+            ime_purpose: ImePurpose::Normal,
+            ime_allowed: true,
         }
     }
 
@@ -315,31 +462,45 @@ impl WgpuLayerShellState {
         self.layer
             .wl_surface()
             .frame(&self.queue_handle, self.layer.wl_surface().clone());
+        surface_texture.present();
 
         // crates/egui-winit/src/lib.rs
 
-        let egui::PlatformOutput {
-            commands,
-            cursor_icon,
-            events: _,                    // handled elsewhere
-            mutable_text_under_cursor: _, // only used in eframe web
-            ime,
-            #[cfg(feature = "accesskit")]
-            accesskit_update,
-            num_completed_passes: _,    // `egui::Context::run` handles this
-            request_discard_reasons: _, // `egui::Context::run` handles this
-            ..
-        } = full_output.platform_output;
+        self.handle_platform(full_output.platform_output);
 
-        for (id, view) in full_output.viewport_output {
-            for cmd in view.commands {
-                match cmd {
-                    _ => {}
+        let pixels_per_point =
+            pixels_per_point(&self.egui_state.context, self.scale_factor() as f32);
+        if false {
+            for (id, view) in full_output.viewport_output {
+                for cmd in view.commands {
+                    match cmd {
+                        ViewportCommand::IMEAllowed(v) => {
+                            self.set_ime_allowed(v);
+                        }
+                        ViewportCommand::IMEPurpose(p) => self.set_ime_purpose(match p {
+                            egui::viewport::IMEPurpose::Password => ImePurpose::Password,
+                            egui::viewport::IMEPurpose::Terminal => ImePurpose::Terminal,
+                            egui::viewport::IMEPurpose::Normal => ImePurpose::Normal,
+                        }),
+                        ViewportCommand::IMERect(rect) => {
+                            self.set_ime_cursor_area(
+                                PhysicalPosition::new(
+                                    pixels_per_point * rect.min.x,
+                                    pixels_per_point * rect.min.y,
+                                )
+                                .into(),
+                                PhysicalSize::new(
+                                    pixels_per_point * rect.size().x,
+                                    pixels_per_point * rect.size().y,
+                                )
+                                .into(),
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
-
-        surface_texture.present();
     }
 }
 
