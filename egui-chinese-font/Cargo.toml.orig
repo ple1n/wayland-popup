@@ -1,0 +1,35 @@
+[package]
+name = "egui-chinese-font"
+version = "0.1.0"
+edition = "2021"
+authors = ["egui-chinese-font contributors"]
+description = "Cross-platform Chinese font loading for egui applications"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/username/egui-chinese-font"
+documentation = "https://docs.rs/egui-chinese-font"
+homepage = "https://github.com/username/egui-chinese-font"
+readme = "README.md"
+keywords = ["egui", "chinese", "font", "gui", "cjk"]
+categories = ["gui", "internationalization", "text-processing"]
+rust-version = "1.70"
+exclude = ["target/", "examples/target/"]
+
+[dependencies]
+egui = "0.27"
+
+[dev-dependencies]
+eframe = "0.27"
+
+# Optional platform-specific dependencies for advanced font discovery
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "wingdi", "fileapi", "handleapi", "processenv"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-text = { version = "20.1.0", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+fontconfig = { version = "0.8", optional = true }
+
+[features]
+default = []
+platform-fonts = ["winapi", "core-text", "fontconfig"]

@@ -1,5 +1,8 @@
 use anyhow::Result;
-use egui::{style::Spacing, Color32, Margin, Stroke, Style, Visuals};
+use egui::{
+    epaint::text::FontInsert, style::Spacing, Color32, FontData, FontFamily, Margin, Stroke, Style,
+    Visuals,
+};
 use layer_shell_wgpu_egui::{application::Msg, layer_shell::LayerShellOptions};
 use sctk::shell::wlr_layer::KeyboardInteractivity;
 use tracing::level_filters::LevelFilter;
@@ -8,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::INFO)
         .init();
-    
+
     let options = LayerShellOptions {
         width: 500,
         height: 300,
@@ -25,6 +28,8 @@ fn main() -> anyhow::Result<()> {
         let mut li = Visuals::dark();
         li.override_text_color = Some(Color32::WHITE.gamma_multiply(0.7));
         ctx.set_visuals(li);
+        egui_chinese_font::setup_chinese_fonts(ctx);
+
         egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::WHITE.gamma_multiply(0.1)).inner_margin(Margin::same(15))).show(ctx, |ui| {
             ui.heading("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.");
             ui.horizontal(|ui| {

@@ -35,6 +35,7 @@ fn main() -> anyhow::Result<()> {
         let mut li = Visuals::dark();
         li.override_text_color = Some(Color32::WHITE.gamma_multiply(0.7));
         ctx.set_visuals(li);
+        ctx.set
         ctx.input(|i| {
             if i.key_pressed(egui::Key::Escape) {
                 let _ = sx.send(Msg::Hide(true));
