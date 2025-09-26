@@ -30,6 +30,7 @@ fn main() -> anyhow::Result<()> {
 
     impl App for CjkApp {
         fn update(&mut self, ctx: &egui::Context) {
+            // performance on par with offical egui impl rn.
             let name = &mut self.name;
             let age = &mut self.age;
             egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::WHITE.gamma_multiply(0.1)).inner_margin(Margin::same(15))).show(ctx, |ui| {
