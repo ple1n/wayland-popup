@@ -48,8 +48,8 @@ impl WgpuLayerShellApp {
                 _ => (),
             })
             .unwrap();
+        
         let layer_shell_state = WgpuLayerShellState::new(event_loop.handle(), layer_shell_options);
-
         (
             sx.clone(),
             Self {
@@ -63,6 +63,8 @@ impl WgpuLayerShellApp {
             },
         )
     }
+
+    
 
     pub fn run(&mut self) -> Result {
         loop {

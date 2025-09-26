@@ -100,7 +100,7 @@ pub struct WgpuLayerShellState {
     pub(crate) exit: bool,
 
     pub(crate) wgpu_state: WgpuState,
-    pub(crate) egui_state: egui_state::State,
+    pub egui_state: egui_state::State,
     pub(crate) draw_request: Arc<RwLock<Option<Instant>>>,
 
     /// The input method properties provided by the application to the IME.

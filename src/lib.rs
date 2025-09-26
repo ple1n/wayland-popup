@@ -1,6 +1,7 @@
 #![allow(unreachable_code)]
 
 use application::WgpuLayerShellApp;
+use egui::{Color32, Visuals};
 use layer_shell::LayerShellOptions;
 
 use crate::{
@@ -12,10 +13,10 @@ pub(crate) mod egui_state;
 pub mod layer_shell;
 pub(crate) mod wgpu_state;
 
-pub mod text_input;
 pub mod errors;
 pub mod passthru_app;
 pub mod proto;
+pub mod text_input;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
@@ -61,6 +62,32 @@ pub fn run_layer_simple(
         update_fun: U,
         msg: MsgQueue,
     }
+
+    impl<U: FnMut(&egui::Context, &MsgQueue) + 'static> App for SimpleLayerWrapper<U> {
+        fn update(&mut self, ctx: &egui::Context) {
+            (self.update_fun)(ctx, &self.msg);
+        }
+    }
+
+    let (sx, e) = run_layer(
+        options,
+        Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
+    );
+
+    (sx, e)
+}
+
+pub fn run_layer_cjk(
+    options: LayerShellOptions,
+    update_fun: impl FnMut(&egui::Context, &MsgQueue) + 'static,
+) -> (MsgQueue, WgpuLayerShellApp) {
+    struct SimpleLayerWrapper<U> {
+        update_fun: U,
+        msg: MsgQueue,
+    }
+
+    let mut li = Visuals::dark();
+    li.override_text_color = Some(Color32::WHITE.gamma_multiply(0.7));
 
     impl<U: FnMut(&egui::Context, &MsgQueue) + 'static> App for SimpleLayerWrapper<U> {
         fn update(&mut self, ctx: &egui::Context) {
