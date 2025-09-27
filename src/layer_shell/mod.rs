@@ -70,7 +70,6 @@ use crate::{
     App,
 };
 
-pub mod passthrough;
 
 #[derive(Default)]
 pub struct LayerShellOptions {
@@ -118,6 +117,9 @@ pub struct WgpuLayerShellState {
 
     /// Whether the IME input is allowed for that window.
     ime_allowed: bool,
+    passthrough: bool,
+
+    compositor: CompositorState,
 }
 
 #[derive(Default)]
@@ -244,6 +246,19 @@ impl WgpuLayerShellState {
         applied
     }
 
+    pub fn set_passthrough(&mut self, pass: bool) {
+        if pass {
+            let region = self
+                .compositor
+                .wl_compositor()
+                .create_region(&self.queue_handle, ());
+            self.layer.set_input_region(Some(&region));
+        } else {
+            self.layer.set_input_region(None);
+        }
+        self.passthrough = pass;
+    }
+
     pub(crate) fn new(loop_handle: LoopHandle<'static, Self>, options: LayerShellOptions) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
@@ -290,15 +305,6 @@ impl WgpuLayerShellState {
         let mut seats = AHashMap::default();
         for seat in seat_state.seats() {
             seats.insert(seat.id(), PerSeat::default());
-        }
-
-        let passthrough = false;
-
-        if passthrough {
-            let region = compositor_state
-                .wl_compositor()
-                .create_region(&queue_handle, ());
-            layer_surface.set_input_region(Some(&region));
         }
 
         let region = compositor_state
@@ -361,6 +367,8 @@ impl WgpuLayerShellState {
             seat_map: seats,
             ime_purpose: ImePurpose::Normal,
             ime_allowed: true,
+            compositor: compositor_state,
+            passthrough: false,
         }
     }
 

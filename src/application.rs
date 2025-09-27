@@ -7,7 +7,9 @@ use sctk::{
 };
 
 use crate::{
-    App, AppCreator, Result, layer_shell::{LayerShellOptions, WgpuLayerShellState}, text_input::{ImeCapabilities, ImeEnableRequest}
+    layer_shell::{LayerShellOptions, WgpuLayerShellState},
+    text_input::{ImeCapabilities, ImeEnableRequest},
+    App, AppCreator, Result,
 };
 
 pub struct WgpuLayerShellApp {
@@ -19,6 +21,7 @@ pub struct WgpuLayerShellApp {
 #[derive(Debug)]
 pub enum Msg {
     Hide(bool),
+    Passthrough(bool),
 }
 
 pub type MsgQueue = calloop::channel::Sender<Msg>;
@@ -44,11 +47,14 @@ impl WgpuLayerShellApp {
                             data.layer.commit();
                         }
                     }
+                    Msg::Passthrough(b) => {
+                        data.set_passthrough(b);
+                    }
                 },
                 _ => (),
             })
             .unwrap();
-        
+
         let layer_shell_state = WgpuLayerShellState::new(event_loop.handle(), layer_shell_options);
         (
             sx.clone(),
@@ -63,8 +69,6 @@ impl WgpuLayerShellApp {
             },
         )
     }
-
-    
 
     pub fn run(&mut self) -> Result {
         loop {

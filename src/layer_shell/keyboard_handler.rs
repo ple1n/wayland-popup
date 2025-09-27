@@ -6,11 +6,8 @@ use sctk::{
 use wayland_client::{protocol::wl_surface, Connection, QueueHandle};
 
 use super::WgpuLayerShellState;
-use super::passthrough::PassthroughShell;
 
 delegate_keyboard!(WgpuLayerShellState);
-delegate_keyboard!(PassthroughShell);
-
 
 impl KeyboardHandler for WgpuLayerShellState {
     fn enter(
@@ -83,80 +80,6 @@ impl KeyboardHandler for WgpuLayerShellState {
         };
     }
 }
-
-
-impl KeyboardHandler for PassthroughShell {
-    fn enter(
-        &mut self,  
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
-        _surface: &wl_surface::WlSurface,
-        _serial: u32,
-        _raw: &[u32],
-        _keysyms: &[sctk::seat::keyboard::Keysym],
-    ) {
-        let input = self.egui_state.input();
-        input.focused = true;
-        // todo: this should probably be in surface enter?
-        input.events.push(egui::Event::WindowFocused(true));
-    }
-
-    fn leave(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
-        _surface: &wl_surface::WlSurface,
-        _serial: u32,
-    ) {
-        let input = self.egui_state.input();
-        input.focused = false;
-        // todo: this should probably be in surface enter?
-        input.events.push(egui::Event::WindowFocused(false));
-    }
-
-    fn press_key(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
-        _serial: u32,
-        event: sctk::seat::keyboard::KeyEvent,
-    ) {
-        handle_key_press(event, true, self.egui_state.input());
-    }
-
-    fn release_key(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
-        _serial: u32,
-        event: sctk::seat::keyboard::KeyEvent,
-    ) {
-        handle_key_press(event, false, self.egui_state.input());
-    }
-
-    fn update_modifiers(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
-        _serial: u32,
-        modifiers: sctk::seat::keyboard::Modifiers,
-        _layout: u32,
-    ) {
-        self.egui_state.input().modifiers = Modifiers {
-            alt: modifiers.alt,
-            ctrl: modifiers.ctrl,
-            shift: modifiers.shift,
-            mac_cmd: false, // this is linux only
-            command: modifiers.ctrl,
-        };
-    }
-}
-
 
 fn handle_clipboard_shortcuts(
     key: egui::Key,

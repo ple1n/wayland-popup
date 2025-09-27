@@ -60,6 +60,8 @@ fn main() -> anyhow::Result<()> {
         }),
     );
 
+    msg.send(Msg::Passthrough(true))?;
+
     std::thread::spawn(move || {
         use std::io::{self, Write};
         println!("Type 'h' to hide the window, 'unhide' to show it, or 'quit' to exit:");

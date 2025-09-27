@@ -4,9 +4,7 @@ use application::WgpuLayerShellApp;
 use egui::{Color32, Visuals};
 use layer_shell::LayerShellOptions;
 
-use crate::{
-    application::MsgQueue, layer_shell::passthrough::PassthroughShell, passthru_app::PassthruApp,
-};
+use crate::application::MsgQueue;
 
 pub mod application;
 pub(crate) mod egui_state;
@@ -14,7 +12,6 @@ pub mod layer_shell;
 pub(crate) mod wgpu_state;
 
 pub mod errors;
-pub mod passthru_app;
 pub mod proto;
 pub mod text_input;
 
@@ -41,15 +38,6 @@ pub fn run_layer(
     app_creator: AppCreator,
 ) -> (MsgQueue, WgpuLayerShellApp) {
     let (q, app) = WgpuLayerShellApp::new(options, app_creator);
-
-    (q, app)
-}
-
-pub fn run_layer_pass(
-    options: LayerShellOptions,
-    app_creator: AppCreator,
-) -> (MsgQueue, PassthruApp) {
-    let (q, app) = PassthruApp::new(options, app_creator);
 
     (q, app)
 }
@@ -96,29 +84,6 @@ pub fn run_layer_cjk(
     }
 
     let (sx, e) = run_layer(
-        options,
-        Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
-    );
-
-    (sx, e)
-}
-
-pub fn run_layer_simple_pass(
-    options: LayerShellOptions,
-    update_fun: impl FnMut(&egui::Context, &MsgQueue) + 'static,
-) -> (MsgQueue, PassthruApp) {
-    struct SimpleLayerWrapper<U> {
-        update_fun: U,
-        msg: MsgQueue,
-    }
-
-    impl<U: FnMut(&egui::Context, &MsgQueue) + 'static> App for SimpleLayerWrapper<U> {
-        fn update(&mut self, ctx: &egui::Context) {
-            (self.update_fun)(ctx, &self.msg);
-        }
-    }
-
-    let (sx, e) = run_layer_pass(
         options,
         Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
     );
