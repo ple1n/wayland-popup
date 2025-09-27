@@ -78,6 +78,7 @@ pub struct LayerShellOptions {
     pub height: u32,
     pub anchor: Option<Anchor>,
     pub keyboard_interactivity: Option<KeyboardInteractivity>,
+    pub margin: (i32, i32, i32, i32),
 }
 
 pub struct WgpuLayerShellState {
@@ -119,6 +120,7 @@ pub struct WgpuLayerShellState {
     passthrough: bool,
 
     compositor: CompositorState,
+    layer_opts: LayerShellOptions,
 }
 
 #[derive(Default)]
@@ -258,6 +260,26 @@ impl WgpuLayerShellState {
         self.passthrough = pass;
     }
 
+    pub fn set_layer_opts(&mut self) {
+        let options = &self.layer_opts;
+        let layer_surface = &self.layer;
+        if let Some(anchor) = options.anchor {
+            layer_surface.set_anchor(anchor);
+        }
+        if let Some(keyboard_interactivity) = options.keyboard_interactivity {
+            layer_surface.set_keyboard_interactivity(keyboard_interactivity);
+        }
+        layer_surface.set_size(options.width, options.height);
+        layer_surface.set_opaque_region(None);
+        layer_surface.set_margin(
+            options.margin.0,
+            options.margin.1,
+            options.margin.2,
+            options.margin.3,
+        );
+        layer_surface.commit();
+    }
+
     pub(crate) fn new(loop_handle: LoopHandle<'static, Self>, options: LayerShellOptions) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
@@ -266,11 +288,6 @@ impl WgpuLayerShellState {
         // global_list
         //     .bind::<ExtBackgroundEffectManagerV1, _, _>(queue_handle.as_ref(), 0..=1, ())
         //     .unwrap();
-
-        let kdeblur = global_list
-            .bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ())
-            .unwrap();
-
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
             .unwrap();
@@ -278,6 +295,10 @@ impl WgpuLayerShellState {
         let compositor_state = CompositorState::bind(&global_list, &queue_handle)
             .expect("wl_compositor not available");
         let wl_surface = compositor_state.create_surface(&queue_handle);
+
+        let kdeblur = global_list
+            .bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ())
+            .unwrap();
 
         let layer_shell =
             LayerShell::bind(&global_list, &queue_handle).expect("layer shell not available");
@@ -297,6 +318,12 @@ impl WgpuLayerShellState {
         }
         layer_surface.set_size(options.width, options.height);
         layer_surface.set_opaque_region(None);
+        layer_surface.set_margin(
+            options.margin.0,
+            options.margin.1,
+            options.margin.2,
+            options.margin.3,
+        );
         layer_surface.commit();
 
         let seat_state = SeatState::new(globals, &queue_handle);
@@ -368,7 +395,14 @@ impl WgpuLayerShellState {
             ime_allowed: true,
             compositor: compositor_state,
             passthrough: false,
+            layer_opts: options,
         }
+    }
+
+    pub fn set_margin(&mut self, margin: (i32, i32, i32, i32)) {
+        self.layer
+            .set_margin(margin.0, margin.1, margin.2, margin.3);
+        self.layer.commit();
     }
 
     //fn request_redraw(&self, )
@@ -683,10 +717,6 @@ impl SeatHandler for WgpuLayerShellState {
                 self.keyboard.take().unwrap().release();
             }
             _ => {}
-        }
-
-        if capability == Capability::Pointer && self.pointer.is_some() {
-            self.pointer.take().unwrap().release();
         }
     }
 

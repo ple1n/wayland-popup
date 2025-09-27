@@ -148,7 +148,6 @@ impl State {
     ) {
         // crates/eframe/src/native/wgpu_integration.rs
 
-        //self.context.set_pixels_per_point(screen_descriptor.pixels_per_point);
         // iterate over viewport outputs
         /* for output in full_output.viewport_output.values() {
             dbg!(&output.repaint_delay);

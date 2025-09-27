@@ -22,6 +22,7 @@ pub struct WgpuLayerShellApp {
 pub enum Msg {
     Hide(bool),
     Passthrough(bool),
+    Repaint
 }
 
 pub type MsgQueue = calloop::channel::Sender<Msg>;
@@ -38,7 +39,6 @@ impl WgpuLayerShellApp {
             .insert_source(rx, |e, a, data: &mut WgpuLayerShellState| match e {
                 calloop::channel::Event::Msg(m) => match m {
                     Msg::Hide(b) => {
-                        println!("hide {}", b);
                         if b {
                             data.layer.set_layer(Layer::Background);
                             data.layer.commit();
@@ -49,6 +49,9 @@ impl WgpuLayerShellApp {
                     }
                     Msg::Passthrough(b) => {
                         data.set_passthrough(b);
+                    }
+                    Msg::Repaint => {
+                        data.egui_state.context().request_repaint();
                     }
                 },
                 _ => (),

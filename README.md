@@ -23,6 +23,10 @@ Caused by:
 
 I had no idea what part was responsible but I then installed vulkan-intel, and it got fixed. I was on Arch.
 
+## bugs that ever happened
+
+- currently, when there is vscode window behind the popup, the cursor position is offset by 4 pixels
+
 ## philosophy
 
 - minimal dependency

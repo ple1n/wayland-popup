@@ -4,6 +4,7 @@ use sctk::{
     delegate_pointer,
     seat::pointer::{PointerEvent, PointerEventKind, PointerHandler},
 };
+use tracing::info;
 use wayland_client::{
     delegate_noop,
     protocol::wl_pointer::{self, WlPointer},
@@ -21,19 +22,16 @@ impl PointerHandler for WgpuLayerShellState {
         &mut self,
         _: &Connection,
         _: &QueueHandle<Self>,
-        _: &wl_pointer::WlPointer,
+        wl: &wl_pointer::WlPointer,
         events: &[PointerEvent],
     ) {
         for event in events {
             // let position: PhysicalPosition<f64> =
             //     LogicalPosition::new(event.position.0, event.position.1).to_physical(self.scale_factor());
-
             let position = egui::pos2(event.position.0 as f32, event.position.1 as f32);
             let egui_event = match event.kind {
-                PointerEventKind::Enter { .. } | PointerEventKind::Motion { .. } => {
-                    println!("{:?}", position);
-                    egui::Event::PointerMoved(position)
-                }
+                PointerEventKind::Enter { .. } => egui::Event::PointerMoved(position),
+                PointerEventKind::Motion { .. } => egui::Event::PointerMoved(position),
                 PointerEventKind::Leave { .. } => egui::Event::PointerGone,
                 PointerEventKind::Press { button, .. }
                 | PointerEventKind::Release { button, .. } => {

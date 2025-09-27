@@ -1,3 +1,5 @@
+use std::process;
+
 use anyhow::Result;
 use egui::{
     epaint::text::FontInsert, style::Spacing, Color32, FontData, FontFamily, Margin, Stroke, Style,
@@ -7,8 +9,10 @@ use layer_shell_wgpu_egui::{
     application::Msg, errors::wrap_noncritical_sync, layer_shell::LayerShellOptions, App,
     AppCreator,
 };
-use sctk::shell::wlr_layer::KeyboardInteractivity;
-use tracing::level_filters::LevelFilter;
+use sctk::shell::wlr_layer::{Anchor, KeyboardInteractivity};
+use tokio::sync::watch;
+use tracing::{info, level_filters::LevelFilter};
+use wayland_clipboard_listener::WlListenType;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -16,18 +20,20 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     let options = LayerShellOptions {
-        width: 500,
-        height: 300,
-        anchor: None,
+        width: 400,
+        height: 800,
+        anchor: Some(Anchor::LEFT),
+        margin: (50, 50, 50, 50),
         keyboard_interactivity: Some(KeyboardInteractivity::OnDemand),
         ..Default::default()
     };
 
-    // application state
+    let (p_sx, p_rx) = watch::channel("selection".to_owned());
 
-    #[derive(Default)]
+    // application state
     struct CjkApp {
         gamma: f32,
+        select: watch::Receiver<String>,
     }
 
     impl App for CjkApp {
@@ -42,6 +48,13 @@ fn main() -> anyhow::Result<()> {
                 .show(ctx, |ui| {
                     ui.heading("Wayland popup app framework");
                     ui.add(egui::Slider::new(&mut self.gamma, 0.0..=0.5).text("gamma"));
+                    ui.label(egui::RichText::new(
+                        self.select.borrow_and_update().to_owned(),
+                    ));
+                    ui.add_space(20.);
+                    if ui.button("exit").clicked() {
+                        process::exit(0);
+                    }
                 });
         }
     }
@@ -50,14 +63,34 @@ fn main() -> anyhow::Result<()> {
         options,
         Box::new(|ctx, sx| {
             let mut li = Visuals::dark();
-            li.override_text_color = Some(Color32::WHITE.gamma_multiply(0.7));
+            li.override_text_color = Some(Color32::WHITE.gamma_multiply(0.8));
             ctx.set_visuals(li);
             egui_chinese_font::setup_chinese_fonts(ctx).unwrap();
-            Ok(Box::new(CjkApp::default()))
+            Ok(Box::new(CjkApp {
+                gamma: 0.04,
+                select: p_rx,
+            }))
         }),
     );
-
     msg.send(Msg::Passthrough(false))?;
+    let msg2  = msg.clone();
+
+    std::thread::spawn(move || {
+        wrap_noncritical_sync(|| {
+            let mut lis = wayland_clipboard_listener::WlClipboardPasteStream::init(
+                WlListenType::ListenOnSelect,
+            )?;
+            for ctx in lis.paste_stream().flatten() {
+                let stx = String::from_utf8(ctx.context.context);
+                if let Ok(stx) = stx {
+                    info!("select {:?}", &stx);
+                    p_sx.send(stx)?;
+                    msg2.send(Msg::Repaint)?;
+                }
+            }
+            anyhow::Ok(())
+        });
+    });
 
     std::thread::spawn(move || {
         use std::io::{self, Write};
@@ -82,7 +115,7 @@ fn main() -> anyhow::Result<()> {
                     }
                     "p" => {
                         msg.send(Msg::Passthrough(true))?;
-                    },
+                    }
                     _ => println!("Unknown command: {}", cmd),
                 }
                 anyhow::Ok(())
