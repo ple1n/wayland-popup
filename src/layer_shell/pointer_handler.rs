@@ -1,11 +1,16 @@
+use dpi::{LogicalPosition, PhysicalPosition};
 use egui::{PointerButton, Vec2};
 use sctk::{
     delegate_pointer,
     seat::pointer::{PointerEvent, PointerEventKind, PointerHandler},
 };
 use wayland_client::{
-    Connection, QueueHandle, delegate_noop, protocol::wl_pointer::{self, WlPointer}
+    delegate_noop,
+    protocol::wl_pointer::{self, WlPointer},
+    Connection, QueueHandle,
 };
+
+use crate::layer_shell::pixels_per_point;
 
 use super::WgpuLayerShellState;
 
@@ -20,9 +25,13 @@ impl PointerHandler for WgpuLayerShellState {
         events: &[PointerEvent],
     ) {
         for event in events {
+            // let position: PhysicalPosition<f64> =
+            //     LogicalPosition::new(event.position.0, event.position.1).to_physical(self.scale_factor());
+
             let position = egui::pos2(event.position.0 as f32, event.position.1 as f32);
             let egui_event = match event.kind {
                 PointerEventKind::Enter { .. } | PointerEventKind::Motion { .. } => {
+                    println!("{:?}", position);
                     egui::Event::PointerMoved(position)
                 }
                 PointerEventKind::Leave { .. } => egui::Event::PointerGone,
@@ -53,7 +62,6 @@ impl PointerHandler for WgpuLayerShellState {
         }
     }
 }
-
 
 fn translate_button(button: u32) -> Option<PointerButton> {
     match button {

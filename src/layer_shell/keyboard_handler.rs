@@ -64,12 +64,13 @@ impl KeyboardHandler for WgpuLayerShellState {
 
     fn update_modifiers(
         &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
-        _serial: u32,
+        conn: &Connection,
+        qh: &QueueHandle<Self>,
+        keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
+        serial: u32,
         modifiers: sctk::seat::keyboard::Modifiers,
-        _layout: u32,
+        raw_modifiers: sctk::seat::keyboard::RawModifiers,
+        layout: u32,
     ) {
         self.egui_state.input().modifiers = Modifiers {
             alt: modifiers.alt,
@@ -78,6 +79,16 @@ impl KeyboardHandler for WgpuLayerShellState {
             mac_cmd: false, // this is linux only
             command: modifiers.ctrl,
         };
+    }
+
+    fn repeat_key(
+        &mut self,
+        conn: &Connection,
+        qh: &QueueHandle<Self>,
+        keyboard: &wayland_client::protocol::wl_keyboard::WlKeyboard,
+        serial: u32,
+        event: KeyEvent,
+    ) {
     }
 }
 

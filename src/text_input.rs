@@ -12,7 +12,7 @@ use sctk::reexports::protocols::wp::text_input::zv3::client::zwp_text_input_v3::
 };
 use tracing::{info, warn};
 
-use crate::layer_shell::WgpuLayerShellState;
+use crate::layer_shell::{pixels_per_point, WgpuLayerShellState};
 
 #[derive(Debug)]
 pub struct TextInputState {
@@ -473,6 +473,10 @@ bitflags! {
 impl WgpuLayerShellState {
     pub fn scale_factor(&self) -> f64 {
         1.0
+    }
+
+    pub fn pixels_per_point(&self) -> f32 {
+        pixels_per_point(self.egui_state.context(), self.scale_factor() as f32) as f32
     }
     /// Register text input on the top-level.
     #[inline]

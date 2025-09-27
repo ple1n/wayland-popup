@@ -70,7 +70,6 @@ use crate::{
     App,
 };
 
-
 #[derive(Default)]
 pub struct LayerShellOptions {
     pub layer: Option<Layer>,
@@ -431,7 +430,7 @@ impl WgpuLayerShellState {
                 self.wgpu_state.surface_configuration.width,
                 self.wgpu_state.surface_configuration.height,
             ],
-            pixels_per_point: 1.0, // todo: figure out where to get that from
+            pixels_per_point: self.pixels_per_point(),
         };
 
         self.egui_state.draw(
@@ -454,9 +453,8 @@ impl WgpuLayerShellState {
 
         self.handle_platform(full_output.platform_output);
 
-        let pixels_per_point =
-            pixels_per_point(&self.egui_state.context, self.scale_factor() as f32);
         if false {
+            let pixels_per_point = self.pixels_per_point();
             for (id, view) in full_output.viewport_output {
                 for cmd in view.commands {
                     match cmd {
