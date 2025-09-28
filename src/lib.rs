@@ -10,7 +10,7 @@ pub mod application;
 pub(crate) mod egui_state;
 pub mod layer_shell;
 pub(crate) mod wgpu_state;
-
+pub use egui_chinese_font;
 pub mod errors;
 pub mod proto;
 pub mod text_input;
