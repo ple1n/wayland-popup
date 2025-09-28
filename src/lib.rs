@@ -14,6 +14,8 @@ pub(crate) mod wgpu_state;
 pub mod errors;
 pub mod proto;
 pub mod text_input;
+pub use egui;
+pub use flume;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
