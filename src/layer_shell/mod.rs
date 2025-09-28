@@ -14,7 +14,7 @@ use egui::{
 };
 use egui_wgpu::ScreenDescriptor;
 use keyboard_handler::handle_key_press;
-use sctk::{
+pub use sctk::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_seat,
     output::{OutputHandler, OutputState},
