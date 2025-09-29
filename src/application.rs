@@ -5,6 +5,7 @@ use sctk::{
     reexports::calloop::{self, EventLoop},
     shell::{wlr_layer::Layer, WaylandSurface},
 };
+use tracing::info;
 
 use crate::{
     layer_shell::{LayerShellOptions, WgpuLayerShellState},
@@ -14,7 +15,7 @@ use crate::{
 
 pub struct WgpuLayerShellApp {
     application: RefCell<Box<dyn App>>,
-    event_loop: EventLoop<'static, WgpuLayerShellState>,
+    pub event_loop: EventLoop<'static, WgpuLayerShellState>,
     layer_shell_state: WgpuLayerShellState,
 }
 
@@ -22,7 +23,8 @@ pub struct WgpuLayerShellApp {
 pub enum Msg {
     Hide(bool),
     Passthrough(bool),
-    Repaint
+    Repaint,
+    Exit,
 }
 
 pub type MsgQueue = calloop::channel::Sender<Msg>;
@@ -37,23 +39,30 @@ impl WgpuLayerShellApp {
         event_loop
             .handle()
             .insert_source(rx, |e, a, data: &mut WgpuLayerShellState| match e {
-                calloop::channel::Event::Msg(m) => match m {
-                    Msg::Hide(b) => {
-                        if b {
-                            data.layer.set_layer(Layer::Background);
-                            data.layer.commit();
-                        } else {
-                            data.layer.set_layer(Layer::Overlay);
-                            data.layer.commit();
+                calloop::channel::Event::Msg(m) => {
+                    info!("{:?}", &m);
+                    match m {
+                        Msg::Hide(b) => {
+                            if b {
+                                data.layer.set_layer(Layer::Background);
+                                data.layer.commit();
+                            } else {
+                                data.layer.set_layer(Layer::Overlay);
+                                data.layer.commit();
+                            }
+                        }
+                        Msg::Passthrough(b) => {
+                            data.set_passthrough(b);
+                        }
+                        Msg::Repaint => {
+                            data.egui_state.context().request_repaint();
+                        }
+                        Msg::Exit => {
+                            // Exiting here does not cause visual lag.
+                            std::process::exit(0);
                         }
                     }
-                    Msg::Passthrough(b) => {
-                        data.set_passthrough(b);
-                    }
-                    Msg::Repaint => {
-                        data.egui_state.context().request_repaint();
-                    }
-                },
+                }
                 _ => (),
             })
             .unwrap();
