@@ -2,7 +2,7 @@ use std::{cell::RefCell, sync::Arc};
 
 use crossbeam::queue::ArrayQueue;
 use sctk::{
-    reexports::calloop::{self, EventLoop},
+    reexports::calloop::{self, timer::Timer, EventLoop},
     shell::{wlr_layer::Layer, WaylandSurface},
 };
 use tracing::info;
@@ -36,9 +36,11 @@ impl WgpuLayerShellApp {
     ) -> (MsgQueue, Self) {
         let event_loop = EventLoop::try_new().expect("Could not create event loop.");
         let (sx, rx) = calloop::channel::channel::<Msg>();
+        let hd = event_loop.handle();
+        let sx1 = sx.clone();
         event_loop
             .handle()
-            .insert_source(rx, |e, a, data: &mut WgpuLayerShellState| match e {
+            .insert_source(rx, move |e, a, data: &mut WgpuLayerShellState| match e {
                 calloop::channel::Event::Msg(m) => {
                     info!("{:?}", &m);
                     match m {
@@ -58,8 +60,11 @@ impl WgpuLayerShellApp {
                             data.egui_state.context().request_repaint();
                         }
                         Msg::Exit => {
-                            // Exiting here does not cause visual lag.
-                            std::process::exit(0);
+                            sx1.send(Msg::Hide(true)).unwrap();
+                            hd.insert_source(Timer::immediate(), |e, m, d| {
+                                std::process::exit(0);
+                            })
+                            .unwrap();
                         }
                     }
                 }
