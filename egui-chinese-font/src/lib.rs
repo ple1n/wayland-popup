@@ -156,7 +156,7 @@ fn load_linux_chinese_font() -> Result<FontData, FontError> {
         // Ubuntu/Debian paths
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         // CentOS/RHEL paths
-        "/usr/share/fonts/google-droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/google-droid-sans-fonts/DroidSansFallbackFull.ttf",
         // Arch Linux paths
         "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
     ];
