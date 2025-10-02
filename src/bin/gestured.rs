@@ -4,10 +4,11 @@
 //!
 
 use std::collections::HashMap;
-use std::fs::Permissions;
 use std::fs::set_permissions;
+use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Result;
 use async_bincode::tokio::AsyncBincodeStream;
@@ -16,14 +17,14 @@ use evdev::KeyCode;
 use futures::channel::oneshot;
 use futures::SinkExt;
 use futures::{stream::FuturesUnordered, StreamExt};
-use layer_shell_wgpu_egui::errors::wrap_noncritical;
-use layer_shell_wgpu_egui::proto;
-use layer_shell_wgpu_egui::proto::ProtoGesture;
-use layer_shell_wgpu_egui::proto::DEFAULT_SERVE_PATH;
+use wpopup::errors::wrap_noncritical;
+use wpopup::proto;
+use wpopup::proto::ProtoGesture;
+use wpopup::proto::DEFAULT_SERVE_PATH;
 use tokio::net::UnixListener;
 use tracing::{debug, error, info, warn};
 
-use layer_shell_wgpu_egui::errors::*;
+use wpopup::errors::*;
 
 const RELEASE: i32 = 0;
 const PRESS: i32 = 1;
@@ -41,12 +42,12 @@ async fn main() -> Result<()> {
         streams.push(ev);
     }
     let req_time: HashMap<KeyCode, Duration> = HashMap::new();
-    let mut sx_map: HashMap<KeyCode, oneshot::Sender<()>> = HashMap::new();
+    let mut sx_map: HashMap<KeyCode, oneshot::Sender<_>> = HashMap::new();
     if streams.is_empty() {
         error!("no input device found. check permissions");
         return aok(());
     }
-    
+
     let sock_path = DEFAULT_SERVE_PATH;
     warn!("bind socket at {}", &sock_path);
     let _ = std::fs::remove_file(sock_path);
@@ -89,26 +90,38 @@ async fn main() -> Result<()> {
                     let sx = sx_map.remove(&code);
                     if let Some(sx) = sx {
                         if ty == RELEASE {
-                            let _ = sx.send(());
+                            let _ = sx.send(ty);
                         } else {
                             sx_map.insert(code, sx);
                         }
                     } else {
                         if ty == PRESS {
-                            let (sx, rx) = oneshot::channel::<()>();
+                            let (sx, rx) = oneshot::channel::<_>();
                             let time = req_time
                                 .get(&code)
                                 .cloned()
                                 .unwrap_or(Duration::from_millis(1000));
                             sx_map.insert(code, sx);
                             tokio::spawn(async move {
+                                let start = Instant::now();
+
                                 tokio::select! {
                                     _ = tokio::time::sleep(time) => {
                                         info!(code = ?code, "long press");
                                         handle_longpress(brsx, code).await;
                                     },
-                                    _ = rx => {
-                                        debug!("early interrupted long press event");
+                                    tap = rx => {
+                                        let inter = Instant::now() - start;
+                                        match tap {
+                                            Ok(tap) => {
+                                                if tap == PRESS {
+                                                    handle_taps(brsx, code, inter).await;
+                                                } else {
+                                                    debug!("long press cancelled");
+                                                }
+                                            },
+                                            _ => {}
+                                        }
                                     }
                                 };
                             });
@@ -128,6 +141,14 @@ async fn main() -> Result<()> {
 async fn handle_longpress(sx: flume::Sender<ProtoGesture>, code: KeyCode) {
     wrap_noncritical(sx.send_async(ProtoGesture {
         kind: proto::Kind::LongPress,
+        key: code,
+    }))
+    .await;
+}
+
+async fn handle_taps(sx: flume::Sender<ProtoGesture>, code: KeyCode, time: Duration) {
+    wrap_noncritical(sx.send_async(ProtoGesture {
+        kind: proto::Kind::Taps(time),
         key: code,
     }))
     .await;

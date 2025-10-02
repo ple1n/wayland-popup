@@ -5,7 +5,7 @@ use egui::{
     epaint::text::FontInsert, style::Spacing, Color32, FontData, FontFamily, Margin, Stroke, Style,
     Visuals,
 };
-use layer_shell_wgpu_egui::{
+use wpopup::{
     application::Msg, errors::wrap_noncritical_sync, layer_shell::LayerShellOptions, App,
     AppCreator,
 };
@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let (msg, mut app) = layer_shell_wgpu_egui::run_layer(
+    let (msg, mut app) = wpopup::run_layer(
         options,
         Box::new(|ctx, sx| {
             let mut li = Visuals::dark();

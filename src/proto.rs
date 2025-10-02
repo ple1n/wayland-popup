@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use evdev::KeyCode;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +14,7 @@ pub enum Kind {
     Press,
     Release,
     LongPress,
+    Taps(Duration)
 }
 
 pub const DEFAULT_SERVE_PATH: &str = "/var/run/gestured.sock";
