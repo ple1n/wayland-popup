@@ -90,6 +90,7 @@ pub struct WgpuLayerShellState {
     pub(crate) queue_handle: Arc<QueueHandle<Self>>,
 
     pub(crate) layer: LayerSurface,
+    pub current_layer: Layer,
     pointer: Option<WlPointer>,
     keyboard: Option<WlKeyboard>,
 
@@ -302,10 +303,11 @@ impl WgpuLayerShellState {
 
         let layer_shell =
             LayerShell::bind(&global_list, &queue_handle).expect("layer shell not available");
+        let layer = options.layer.unwrap_or(Layer::Top);
         let layer_surface = layer_shell.create_layer_surface(
             &queue_handle,
             wl_surface,
-            options.layer.unwrap_or(Layer::Top),
+            layer,
             Some(options.namespace.clone()),
             None,
         );
@@ -374,7 +376,7 @@ impl WgpuLayerShellState {
 
             exit: false,
             layer: layer_surface,
-
+            current_layer: layer,
             pointer: None,
             keyboard: None,
 

@@ -17,6 +17,7 @@ pub mod text_input;
 pub use egui;
 pub use flume;
 pub use wayland_clipboard_listener;
+pub use async_bincode;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;

@@ -3,7 +3,10 @@ use std::{cell::RefCell, sync::Arc};
 use crossbeam::queue::ArrayQueue;
 use sctk::{
     reexports::calloop::{self, timer::Timer, EventLoop},
-    shell::{wlr_layer::Layer, WaylandSurface},
+    shell::{
+        wlr_layer::{Layer, SurfaceKind},
+        WaylandSurface,
+    },
 };
 use tracing::info;
 
@@ -21,6 +24,7 @@ pub struct WgpuLayerShellApp {
 
 #[derive(Debug)]
 pub enum Msg {
+    Toggle,
     Hide(bool),
     Passthrough(bool),
     Repaint,
@@ -44,11 +48,24 @@ impl WgpuLayerShellApp {
                 calloop::channel::Event::Msg(m) => {
                     info!("{:?}", &m);
                     match m {
-                        Msg::Hide(b) => {
-                            if b {
+                        Msg::Toggle => {
+                            if data.current_layer != Layer::Background {
+                                data.current_layer = Layer::Background;
                                 data.layer.set_layer(Layer::Background);
                                 data.layer.commit();
                             } else {
+                                data.current_layer = Layer::Overlay;
+                                data.layer.set_layer(Layer::Overlay);
+                                data.layer.commit();
+                            }
+                        }
+                        Msg::Hide(b) => {
+                            if b {
+                                data.current_layer = Layer::Background;
+                                data.layer.set_layer(Layer::Background);
+                                data.layer.commit();
+                            } else {
+                                data.current_layer = Layer::Overlay;
                                 data.layer.set_layer(Layer::Overlay);
                                 data.layer.commit();
                             }

@@ -78,6 +78,7 @@ async fn main() -> Result<()> {
                 loop {
                     let k = rx.recv_async().await?;
                     fm.send(k).await?;
+                    fm.next();
                 }
                 aok(())
             });
