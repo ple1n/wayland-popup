@@ -19,7 +19,7 @@ use crate::{
 pub struct WgpuLayerShellApp {
     application: RefCell<Box<dyn App>>,
     pub event_loop: EventLoop<'static, WgpuLayerShellState>,
-    layer_shell_state: WgpuLayerShellState,
+    pub layer_shell_state: WgpuLayerShellState,
 }
 
 #[derive(Debug)]
@@ -42,6 +42,7 @@ impl WgpuLayerShellApp {
         let (sx, rx) = calloop::channel::channel::<Msg>();
         let hd = event_loop.handle();
         let sx1 = sx.clone();
+
         event_loop
             .handle()
             .insert_source(rx, move |e, a, data: &mut WgpuLayerShellState| match e {

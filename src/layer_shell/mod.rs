@@ -231,6 +231,7 @@ impl WgpuLayerShellState {
             return false;
         }
 
+        info!("set ime {}", allowed);
         self.ime_allowed = allowed;
 
         let mut applied = false;

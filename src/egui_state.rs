@@ -38,17 +38,17 @@ impl State {
     pub fn ime_event_enable(&mut self) {
         if !self.has_sent_ime_enabled {
             info!("enable ime");
+            self.has_sent_ime_enabled = true;
             self.egui_input
                 .events
                 .push(egui::Event::Ime(egui::ImeEvent::Enabled));
-            self.has_sent_ime_enabled = true;
         }
     }
     pub fn ime_event_disable(&mut self) {
+        self.has_sent_ime_enabled = false;
         self.egui_input
             .events
             .push(egui::Event::Ime(egui::ImeEvent::Disabled));
-        self.has_sent_ime_enabled = false;
     }
 
     pub fn new(
