@@ -78,7 +78,6 @@ async fn main() -> Result<()> {
                 loop {
                     let k = rx.recv_async().await?;
                     fm.send(k).await?;
-                    fm.next();
                 }
                 aok(())
             });
@@ -100,45 +99,49 @@ async fn main() -> Result<()> {
         };
         if let Some(ev) = ev {
             if let Some(ev) = ev {
-                let ev = ev?;
-                match ev.destructure() {
-                    EventSummary::Key(ke, code, ty) => {
-                        if ty == PRESS {
-                            let this = Instant::now();
-                            let last = press.insert(code, this.clone());
-                            timers.push(async move {
-                                sleep(Duration::from_millis(1000)).await;
-                                code
-                            });
-                            let key_tap =
-                                tap_dist.get_mut(&code).cloned().unwrap_or(TapDist::Initial);
-                            if let Some(last) = last {
-                                let dist = this - last;
-                                if dist < Duration::from_millis(800) {
-                                    tap_dist.insert(code, TapDist::First(dist));
-                                    handle_taps(
-                                        &brsx,
-                                        code,
-                                        match key_tap {
-                                            TapDist::Initial => TapDist::First(dist),
-                                            TapDist::Rest(long) => {
-                                                info!("first tap after {:?}", long);
-                                                TapDist::First(dist)
-                                            }
-                                            _ => TapDist::Seq(dist),
-                                        },
-                                    )
-                                    .await;
-                                } else {
-                                    tap_dist.insert(code, TapDist::Rest(dist));
+                let ev = ev;
+                if let Ok(ev) = ev {
+                    match ev.destructure() {
+                        EventSummary::Key(ke, code, ty) => {
+                            if ty == PRESS {
+                                let this = Instant::now();
+                                let last = press.insert(code, this.clone());
+                                timers.push(async move {
+                                    sleep(Duration::from_millis(1000)).await;
+                                    code
+                                });
+                                let key_tap =
+                                    tap_dist.get_mut(&code).cloned().unwrap_or(TapDist::Initial);
+                                if let Some(last) = last {
+                                    let dist = this - last;
+                                    if dist < Duration::from_millis(800) {
+                                        tap_dist.insert(code, TapDist::First(dist));
+                                        handle_taps(
+                                            &brsx,
+                                            code,
+                                            match key_tap {
+                                                TapDist::Initial => TapDist::First(dist),
+                                                TapDist::Rest(long) => {
+                                                    info!("first tap after {:?}", long);
+                                                    TapDist::First(dist)
+                                                }
+                                                _ => TapDist::Seq(dist),
+                                            },
+                                        )
+                                        .await;
+                                    } else {
+                                        tap_dist.insert(code, TapDist::Rest(dist));
+                                    }
                                 }
                             }
+                            if ty == RELEASE {
+                                release.insert(code, Instant::now());
+                            }
                         }
-                        if ty == RELEASE {
-                            release.insert(code, Instant::now());
-                        }
+                        _ => {}
                     }
-                    _ => {}
+                } else {
+                    error!(ev=?ev, "error reading dev")
                 }
             } else {
                 break;
