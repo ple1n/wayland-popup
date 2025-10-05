@@ -16,6 +16,7 @@ use anyhow::Result;
 use async_bincode::tokio::AsyncBincodeStream;
 use evdev::EventSummary;
 use evdev::KeyCode;
+use exponential_backoff::Backoff;
 use futures::channel::oneshot;
 use futures::stream::FuturesOrdered;
 use futures::FutureExt;
@@ -91,6 +92,9 @@ async fn main() -> Result<()> {
     let mut sa = futures::stream::select_all(streams);
     let mut timers = FuturesUnordered::new();
     let mut tap_dist: BTreeMap<KeyCode, TapDist> = BTreeMap::new();
+    let backoff_init = Backoff::new(1000, Duration::from_millis(1), Duration::from_secs(5));
+    let mut backoff: Option<exponential_backoff::IntoIter> = None;
+
     loop {
         let brsx = brsx.clone();
         let (ev, t) = futures::select! {
@@ -101,6 +105,7 @@ async fn main() -> Result<()> {
             if let Some(ev) = ev {
                 let ev = ev;
                 if let Ok(ev) = ev {
+                    backoff = None;
                     match ev.destructure() {
                         EventSummary::Key(ke, code, ty) => {
                             if ty == PRESS {
@@ -141,7 +146,18 @@ async fn main() -> Result<()> {
                         _ => {}
                     }
                 } else {
-                    error!(ev=?ev, "error reading dev")
+                    error!(ev=?ev, "error reading dev");
+                    if let Some(back) = &mut backoff {
+                        let du = back.next();
+                        if let Some(Some(du)) = du {
+                            info!("back off for {:?}", &du);
+                            sleep(du).await;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        backoff = Some(backoff_init.iter());
+                    }
                 }
             } else {
                 break;
