@@ -42,7 +42,7 @@ pub fn run_layer(
     options: LayerShellOptions,
     app_creator: AppCreator,
 ) -> (MsgQueue, WgpuLayerShellApp) {
-    let (q, app) = WgpuLayerShellApp::new(options, app_creator);
+    let (q, r, app) = WgpuLayerShellApp::new(options, app_creator);
 
     (q, app)
 }

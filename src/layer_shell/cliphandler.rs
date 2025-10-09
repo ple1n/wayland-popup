@@ -1,8 +1,10 @@
 use std::fs::File;
+use std::io::Read;
 use std::io::Write;
+use std::io::pipe;
 use std::os::fd::AsFd;
+use std::os::fd::IntoRawFd;
 
-use os_pipe::pipe;
 use sctk::reexports::protocols_wlr::data_control::v1::client::{
     zwlr_data_control_device_v1, zwlr_data_control_manager_v1, zwlr_data_control_offer_v1,
     zwlr_data_control_source_v1,
@@ -14,6 +16,7 @@ use wayland_client::{
     Connection, Dispatch, Proxy,
 };
 
+use crate::application::WPEvent;
 use crate::layer_shell::WgpuLayerShellState;
 
 #[derive(Debug)]
@@ -132,20 +135,35 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                     .set_selection(Some(&source));
             }
             zwlr_data_control_device_v1::Event::PrimarySelection { id } => {
-
-                if let Some(offer) = id {
-                    offer.destroy();
-                }
+                let Some(offer) = id else {
+                    return;
+                };
+                let select_mimetype = |state: &WgpuLayerShellState| {
+                    if state.is_text() || state.mime_types.is_empty() {
+                        TEXT.to_string()
+                    } else {
+                        state.mime_types[0].clone()
+                    }
+                };
+                let mimetype = if let Some(val) = &state.set_priority {
+                    val.iter()
+                        .find(|i| state.mime_types.contains(i))
+                        .cloned()
+                        .unwrap_or_else(|| select_mimetype(state))
+                } else {
+                    select_mimetype(state)
+                };
+                let (read, write) = std::io::pipe().unwrap();
+                offer.receive(mimetype, write.as_fd());
+                let _ = state.ev.send(WPEvent::Fd(read));
             }
             zwlr_data_control_device_v1::Event::Selection { id } => {
                 let Some(offer) = id else {
                     return;
                 };
-                // if is copying, not run this
                 if state.copy_data.is_some() {
                     return;
                 }
-                // TODO: how can I handle the mimetype?
                 let select_mimetype = |state: &WgpuLayerShellState| {
                     if state.is_text() || state.mime_types.is_empty() {
                         TEXT.to_string()

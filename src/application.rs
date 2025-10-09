@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, io::PipeReader, sync::Arc};
 
 use crossbeam::queue::ArrayQueue;
 use sctk::{
@@ -8,6 +8,7 @@ use sctk::{
         WaylandSurface,
     },
 };
+use tokio::sync::mpsc;
 use tracing::info;
 
 use crate::{
@@ -31,15 +32,22 @@ pub enum Msg {
     Exit,
 }
 
+#[derive(Debug)]
+pub enum WPEvent {
+    Fd(PipeReader)
+}
+
 pub type MsgQueue = calloop::channel::Sender<Msg>;
+pub type EvRx = mpsc::UnboundedReceiver<WPEvent>;
 
 impl WgpuLayerShellApp {
     pub fn new(
         layer_shell_options: LayerShellOptions,
         app_creator: AppCreator,
-    ) -> (MsgQueue, Self) {
+    ) -> (MsgQueue, EvRx, Self) {
         let event_loop = EventLoop::try_new().expect("Could not create event loop.");
         let (sx, rx) = calloop::channel::channel::<Msg>();
+        let (esx, erx) = mpsc::unbounded_channel::<WPEvent>();
         let hd = event_loop.handle();
         let sx1 = sx.clone();
 
@@ -90,9 +98,11 @@ impl WgpuLayerShellApp {
             })
             .unwrap();
 
-        let layer_shell_state = WgpuLayerShellState::new(event_loop.handle(), layer_shell_options);
+        let layer_shell_state =
+            WgpuLayerShellState::new(event_loop.handle(), layer_shell_options, esx);
         (
             sx.clone(),
+            erx,
             Self {
                 // TODO: find better way to handle this potential error
                 application: RefCell::new(

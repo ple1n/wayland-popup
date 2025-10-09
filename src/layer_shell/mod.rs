@@ -2,9 +2,7 @@ mod keyboard_handler;
 mod pointer_handler;
 
 use std::{
-    sync::{Arc, RwLock},
-    time::{Duration, Instant},
-    u32,
+    io::PipeReader, sync::{Arc, RwLock}, time::{Duration, Instant}, u32
 };
 
 use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Position, Size};
@@ -51,6 +49,7 @@ use sctk::{
         zwlr_data_control_device_v1, zwlr_data_control_manager_v1,
     },
 };
+use tokio::sync::mpsc;
 use tracing::{info, warn};
 use wayland_backend::client::ObjectId;
 use wayland_client::{
@@ -66,6 +65,7 @@ use wayland_protocols_plasma::blur::client::org_kde_kwin_blur::OrgKdeKwinBlur;
 use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwinBlurManager;
 
 use crate::{
+    application::WPEvent,
     egui_state::{self},
     layer_shell::cliphandler::WlListenType,
     text_input::{
@@ -136,10 +136,12 @@ pub struct WgpuLayerShellState {
     data_device: Option<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1>,
     mime_types: Vec<String>,
     set_priority: Option<Vec<String>>,
-    pipereader: Option<os_pipe::PipeReader>,
+    pipereader: Option<PipeReader>,
     current_type: Option<String>,
     copy_data: Option<Vec<u8>>,
     copy_cancelled: bool,
+
+    pub ev: mpsc::UnboundedSender<WPEvent>,
 }
 
 pub mod cliphandler;
@@ -302,7 +304,11 @@ impl WgpuLayerShellState {
         layer_surface.commit();
     }
 
-    pub(crate) fn new(loop_handle: LoopHandle<'static, Self>, options: LayerShellOptions) -> Self {
+    pub(crate) fn new(
+        loop_handle: LoopHandle<'static, Self>,
+        options: LayerShellOptions,
+        ev: mpsc::UnboundedSender<WPEvent>,
+    ) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
         let queue_handle: Arc<QueueHandle<WgpuLayerShellState>> = Arc::new(event_queue.handle());
@@ -433,6 +439,7 @@ impl WgpuLayerShellState {
             current_type: None,
             copy_data: None,
             copy_cancelled: false,
+            ev,
         }
     }
 
