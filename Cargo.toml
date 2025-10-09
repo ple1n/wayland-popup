@@ -38,6 +38,7 @@ bitflags = "2"
 dpi = "0.1.2"
 egui-chinese-font = { path = "./egui-chinese-font" }
 exponential-backoff = "2.1.0"
+os_pipe = "1.2.2"
 
 [dev-dependencies]
 egui_extras = { version = "0.32.3", features = ["all_loaders"] }

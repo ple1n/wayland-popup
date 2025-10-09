@@ -45,7 +45,12 @@ pub use sctk::{
     },
 };
 
-use sctk;
+use sctk::{
+    self,
+    reexports::protocols_wlr::data_control::v1::client::{
+        zwlr_data_control_device_v1, zwlr_data_control_manager_v1,
+    },
+};
 use tracing::{info, warn};
 use wayland_backend::client::ObjectId;
 use wayland_client::{
@@ -62,6 +67,7 @@ use wayland_protocols_plasma::blur::client::org_kde_kwin_blur_manager::OrgKdeKwi
 
 use crate::{
     egui_state::{self},
+    layer_shell::cliphandler::WlListenType,
     text_input::{
         ImeCapabilities, ImeEnableRequest, ImeHint, ImePurpose, ImeRequest, ImeRequestData,
         ImeSurroundingText, TextInputClientState, TextInputData, TextInputState, ZwpTextInputV3Ext,
@@ -122,7 +128,21 @@ pub struct WgpuLayerShellState {
 
     compositor: CompositorState,
     layer_opts: LayerShellOptions,
+
+    listentype: WlListenType,
+    seat: Option<wl_seat::WlSeat>,
+    seat_name: Option<String>,
+    data_manager: Option<zwlr_data_control_manager_v1::ZwlrDataControlManagerV1>,
+    data_device: Option<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1>,
+    mime_types: Vec<String>,
+    set_priority: Option<Vec<String>>,
+    pipereader: Option<os_pipe::PipeReader>,
+    current_type: Option<String>,
+    copy_data: Option<Vec<u8>>,
+    copy_cancelled: bool,
 }
+
+pub mod cliphandler;
 
 #[derive(Default)]
 pub struct PerSeat {
@@ -294,6 +314,8 @@ impl WgpuLayerShellState {
             .insert(loop_handle.clone())
             .unwrap();
 
+        let display = connection.display();
+        display.get_registry(&queue_handle, ());
         let compositor_state = CompositorState::bind(&global_list, &queue_handle)
             .expect("wl_compositor not available");
         let wl_surface = compositor_state.create_surface(&queue_handle);
@@ -399,6 +421,18 @@ impl WgpuLayerShellState {
             compositor: compositor_state,
             passthrough: false,
             layer_opts: options,
+
+            listentype: WlListenType::ListenOnSelect,
+            seat: None,
+            seat_name: None,
+            data_manager: None,
+            data_device: None,
+            mime_types: Vec::new(),
+            set_priority: None,
+            pipereader: None,
+            current_type: None,
+            copy_data: None,
+            copy_cancelled: false,
         }
     }
 
