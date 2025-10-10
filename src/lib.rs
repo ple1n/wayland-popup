@@ -16,7 +16,6 @@ pub mod proto;
 pub mod text_input;
 pub use egui;
 pub use flume;
-pub use wayland_clipboard_listener;
 pub use async_bincode;
 pub use exponential_backoff;
 
