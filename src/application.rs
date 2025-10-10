@@ -9,7 +9,7 @@ use sctk::{
     },
 };
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     layer_shell::{LayerShellOptions, WgpuLayerShellState},
@@ -130,7 +130,7 @@ impl WgpuLayerShellApp {
             }
 
             if self.layer_shell_state.exit {
-                println!("exiting example");
+                warn!("layershell exit");
                 break;
             }
         }
