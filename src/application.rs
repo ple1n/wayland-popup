@@ -34,7 +34,7 @@ pub enum Msg {
 
 #[derive(Debug)]
 pub enum WPEvent {
-    Fd(PipeReader)
+    Fd(PipeReader),
 }
 
 pub type MsgQueue = calloop::channel::Sender<Msg>;
@@ -115,7 +115,7 @@ impl WgpuLayerShellApp {
         )
     }
 
-    pub fn run(&mut self) -> Result {
+    pub fn run_forever(mut self) -> Result {
         loop {
             self.event_loop
                 .dispatch(
@@ -129,9 +129,14 @@ impl WgpuLayerShellApp {
                 self.layer_shell_state.draw(&mut **application);
             }
 
+            // For some reason the layer get destroyed externally. Usually after resuming from computer suspension.
             if self.layer_shell_state.exit {
-                warn!("layershell exit");
-                break;
+                warn!("layershell exited. restarting..");
+                self.layer_shell_state = WgpuLayerShellState::new(
+                    self.layer_shell_state.loop_handle,
+                    self.layer_shell_state.layer_opts,
+                    self.layer_shell_state.ev,
+                );
             }
         }
         Ok(())

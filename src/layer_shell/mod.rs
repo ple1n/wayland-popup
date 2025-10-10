@@ -2,7 +2,10 @@ mod keyboard_handler;
 mod pointer_handler;
 
 use std::{
-    io::PipeReader, sync::{Arc, RwLock}, time::{Duration, Instant}, u32
+    io::PipeReader,
+    sync::{Arc, RwLock},
+    time::{Duration, Instant},
+    u32,
 };
 
 use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, Position, Size};
@@ -89,7 +92,7 @@ pub struct LayerShellOptions {
 
 pub struct WgpuLayerShellState {
     //event_loop: Arc<EventLoop<'static, Self>>,
-    loop_handle: LoopHandle<'static, Self>,
+    pub loop_handle: LoopHandle<'static, Self>,
     registry_state: RegistryState,
     seat_state: SeatState,
     output_state: OutputState,
@@ -127,7 +130,7 @@ pub struct WgpuLayerShellState {
     passthrough: bool,
 
     compositor: CompositorState,
-    layer_opts: LayerShellOptions,
+    pub layer_opts: LayerShellOptions,
 
     listentype: WlListenType,
     seat: Option<wl_seat::WlSeat>,

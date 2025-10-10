@@ -123,7 +123,7 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
-    app.run()?;
+    app.run_forever()?;
 
     Ok(())
 }
