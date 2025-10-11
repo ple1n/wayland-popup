@@ -94,6 +94,8 @@ async fn main() -> Result<()> {
     let mut tap_dist: BTreeMap<KeyCode, TapDist> = BTreeMap::new();
     let backoff_init = Backoff::new(1000, Duration::from_millis(1), Duration::from_secs(5));
     let mut backoff: Option<exponential_backoff::IntoIter> = None;
+    let mut last_press: Option<(KeyCode, Instant)> = None;
+    let mut last_key_taken_in_combo = false;
 
     loop {
         let brsx = brsx.clone();
@@ -138,6 +140,21 @@ async fn main() -> Result<()> {
                                         tap_dist.insert(code, TapDist::Rest(dist));
                                     }
                                 }
+                                if let Some((last_key, time)) = last_press {
+                                    if last_key_taken_in_combo {
+                                        last_key_taken_in_combo = false;
+                                    } else if this - time <= Duration::from_millis(500) {
+                                        let kind = proto::Kind::Combo(last_key, code);
+                                        info!(kind = ?kind, "combo");
+                                        last_key_taken_in_combo = true;
+                                        wrap_noncritical(
+                                            brsx.send_async(ProtoGesture { kind, key: code }),
+                                        )
+                                        .await;
+                                    }
+                                }
+
+                                last_press = Some((code, this));
                             }
                             if ty == RELEASE {
                                 release.insert(code, Instant::now());
