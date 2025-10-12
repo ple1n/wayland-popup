@@ -35,6 +35,7 @@ pub trait App {
     // fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
     //     egui::Color32::from_rgba_unmultiplied(12, 12, 12, 180).to_normalized_gamma_f32()
     // }
+    fn init(&self, ctx: &egui::Context) {}
 }
 
 pub fn run_layer(

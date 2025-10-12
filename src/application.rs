@@ -97,18 +97,19 @@ impl WgpuLayerShellApp {
                 _ => (),
             })
             .unwrap();
-
         let layer_shell_state =
             WgpuLayerShellState::new(event_loop.handle(), layer_shell_options, esx);
+        let app = RefCell::new(
+            app_creator(&layer_shell_state.egui_state.context(), sx.clone())
+                .expect("could not create app"),
+        );
+        app.borrow().init(layer_shell_state.egui_state.context());
         (
-            sx.clone(),
+            sx,
             erx,
             Self {
                 // TODO: find better way to handle this potential error
-                application: RefCell::new(
-                    app_creator(&layer_shell_state.egui_state.context(), sx)
-                        .expect("could not create app"),
-                ),
+                application: app,
                 event_loop,
                 layer_shell_state,
             },
@@ -137,6 +138,9 @@ impl WgpuLayerShellApp {
                     self.layer_shell_state.layer_opts,
                     self.layer_shell_state.ev,
                 );
+                self.application
+                    .borrow()
+                    .init(self.layer_shell_state.egui_state.context());
             }
         }
         Ok(())
