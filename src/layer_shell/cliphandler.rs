@@ -1,7 +1,7 @@
 use std::fs::File;
+use std::io::pipe;
 use std::io::Read;
 use std::io::Write;
-use std::io::pipe;
 use std::os::fd::AsFd;
 use std::os::fd::IntoRawFd;
 
@@ -119,10 +119,9 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                     state.current_type = Some(TEXT.to_string());
                     id.receive(TEXT.to_string(), write.as_fd());
                     drop(write);
-                    state.pipereader = Some(read);
                 }
             }
-            zwlr_data_control_device_v1::Event::Finished => {
+            zwlr_data_control_device_v1::Event::Finished => if false {
                 let source = state
                     .data_manager
                     .as_ref()
@@ -157,7 +156,7 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                 offer.receive(mimetype, write.as_fd());
                 let _ = state.ev.send(WPEvent::Fd(read));
             }
-            zwlr_data_control_device_v1::Event::Selection { id } => {
+            zwlr_data_control_device_v1::Event::Selection { id } => if false {
                 let Some(offer) = id else {
                     return;
                 };
@@ -185,7 +184,7 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                     let (read, write) = pipe().unwrap();
                     offer.receive(mimetype, write.as_fd());
                     drop(write);
-                    state.pipereader = Some(read);
+                    // state.pipereader = Some(read);
                 }
             }
             _ => {
