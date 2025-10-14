@@ -121,17 +121,19 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                     drop(write);
                 }
             }
-            zwlr_data_control_device_v1::Event::Finished => if false {
-                let source = state
-                    .data_manager
-                    .as_ref()
-                    .unwrap()
-                    .create_data_source(qh, ());
-                state
-                    .data_device
-                    .as_ref()
-                    .unwrap()
-                    .set_selection(Some(&source));
+            zwlr_data_control_device_v1::Event::Finished => {
+                if false {
+                    let source = state
+                        .data_manager
+                        .as_ref()
+                        .unwrap()
+                        .create_data_source(qh, ());
+                    state
+                        .data_device
+                        .as_ref()
+                        .unwrap()
+                        .set_selection(Some(&source));
+                }
             }
             zwlr_data_control_device_v1::Event::PrimarySelection { id } => {
                 let Some(offer) = id else {
@@ -156,35 +158,38 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                 offer.receive(mimetype, write.as_fd());
                 let _ = state.ev.send(WPEvent::Fd(read));
             }
-            zwlr_data_control_device_v1::Event::Selection { id } => if false {
-                let Some(offer) = id else {
-                    return;
-                };
-                if state.copy_data.is_some() {
-                    return;
-                }
-                let select_mimetype = |state: &WgpuLayerShellState| {
-                    if state.is_text() || state.mime_types.is_empty() {
-                        TEXT.to_string()
-                    } else {
-                        state.mime_types[0].clone()
-                    }
-                };
-                if let WlListenType::ListenOnCopy = state.listentype {
-                    // if priority is set
-                    let mimetype = if let Some(val) = &state.set_priority {
-                        val.iter()
-                            .find(|i| state.mime_types.contains(i))
-                            .cloned()
-                            .unwrap_or_else(|| select_mimetype(state))
-                    } else {
-                        select_mimetype(state)
+            zwlr_data_control_device_v1::Event::Selection { id } => {
+                if false {
+                    let Some(offer) = id else {
+                        return;
                     };
-                    state.current_type = Some(mimetype.clone());
-                    let (read, write) = pipe().unwrap();
-                    offer.receive(mimetype, write.as_fd());
-                    drop(write);
-                    // state.pipereader = Some(read);
+                    if state.copy_data.is_some() {
+                        return;
+                    }
+                    let select_mimetype = |state: &WgpuLayerShellState| {
+                        if state.is_text() || state.mime_types.is_empty() {
+                            TEXT.to_string()
+                        } else {
+                            state.mime_types[0].clone()
+                        }
+                    };
+                    if let WlListenType::ListenOnCopy = state.listentype {
+                        // if priority is set
+                        let mimetype = if let Some(val) = &state.set_priority {
+                            val.iter()
+                                .find(|i| state.mime_types.contains(i))
+                                .cloned()
+                                .unwrap_or_else(|| select_mimetype(state))
+                        } else {
+                            select_mimetype(state)
+                        };
+                        state.current_type = Some(mimetype.clone());
+                        let (read, write) = pipe().unwrap();
+                        offer.receive(mimetype, write.as_fd());
+                        drop(write);
+                        let _ = state.ev.send(WPEvent::Fd(read));
+                        // state.pipereader = Some(read);
+                    }
                 }
             }
             _ => {
