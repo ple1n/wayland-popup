@@ -112,38 +112,50 @@ async fn main() -> Result<()> {
                         EventSummary::Key(ke, code, ty) => {
                             if ty == PRESS {
                                 let this = Instant::now();
-                                let last = press.insert(code, this.clone());
+                                let last_time_this_key = press.insert(code, this.clone());
                                 timers.push(async move {
                                     sleep(Duration::from_millis(1000)).await;
                                     code
                                 });
                                 let key_tap =
                                     tap_dist.get_mut(&code).cloned().unwrap_or(TapDist::Initial);
-                                if let Some(last) = last {
+                                let mut tapped = false;
+                                if let Some(last) = last_time_this_key {
                                     let dist = this - last;
-                                    if dist < Duration::from_millis(800) {
-                                        tap_dist.insert(code, TapDist::First(dist));
-                                        handle_taps(
-                                            &brsx,
-                                            code,
-                                            match key_tap {
-                                                TapDist::Initial => TapDist::First(dist),
-                                                TapDist::Rest(long) => {
-                                                    info!("first tap after {:?}", long);
-                                                    TapDist::First(dist)
-                                                }
-                                                _ => TapDist::Seq(dist),
-                                            },
-                                        )
-                                        .await;
-                                    } else {
+
+                                    if let Some((last_key, time)) = last_press {
+                                        if code == last_key {
+                                            if dist < Duration::from_millis(800) {
+                                                tapped = true;
+                                                tap_dist.insert(code, TapDist::First(dist));
+                                                handle_taps(
+                                                    &brsx,
+                                                    code,
+                                                    match key_tap {
+                                                        TapDist::Initial => TapDist::First(dist),
+                                                        TapDist::Rest(long) => {
+                                                            info!("first tap after {:?}", long);
+                                                            TapDist::First(dist)
+                                                        }
+                                                        _ => TapDist::Seq(dist),
+                                                    },
+                                                )
+                                                .await;
+                                            }
+                                        }
+                                    }
+
+                                    if !tapped {
                                         tap_dist.insert(code, TapDist::Rest(dist));
                                     }
                                 }
                                 if let Some((last_key, time)) = last_press {
+                                    let elapsed = this - time;
+
                                     if last_key_taken_in_combo {
+                                        // Emit nothing
                                         last_key_taken_in_combo = false;
-                                    } else if this - time <= Duration::from_millis(500) {
+                                    } else if elapsed <= Duration::from_millis(500) {
                                         let kind = proto::Kind::Combo(last_key, code);
                                         info!(kind = ?kind, "combo");
                                         last_key_taken_in_combo = true;
