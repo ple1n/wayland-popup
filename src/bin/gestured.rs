@@ -166,7 +166,10 @@ async fn main() -> Result<()> {
                                     }
                                 }
 
-                                last_press = Some((code, this));
+                                match code {
+                                    KeyCode::BTN_LEFT => {}
+                                    _ => last_press = Some((code, this)),
+                                }
                             }
                             if ty == RELEASE {
                                 release.insert(code, Instant::now());

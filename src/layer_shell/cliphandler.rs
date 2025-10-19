@@ -64,7 +64,12 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
                         qh,
                         (),
                     );
-
+                if let Some(dev) = &state.data_device {
+                    dev.destroy();
+                }
+                if let Some(dev) = &state.data_manager {
+                    dev.destroy();
+                }
                 state.data_device =
                     Some(mg.get_data_device(state.seat.as_ref().unwrap(), &state.queue_handle, ()));
                 state.data_manager = Some(mg);
@@ -117,6 +122,7 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                 let (read, write) = std::io::pipe().unwrap();
                 offer.receive(TEXT.to_string(), write.as_fd());
                 let _ = state.ev.send(WPEvent::Fd(read));
+                offer.destroy();
             }
             _ => {
                 log::info!("unhandled event: {event:?}");
