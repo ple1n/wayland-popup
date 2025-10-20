@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use async_bincode::tokio::AsyncBincodeStream;
+use egui::Key;
 use evdev::EventSummary;
 use evdev::KeyCode;
 use exponential_backoff::Backoff;
@@ -167,7 +168,10 @@ async fn main() -> Result<()> {
                                 }
 
                                 match code {
-                                    KeyCode::BTN_LEFT => {}
+                                    KeyCode::BTN_LEFT
+                                    | KeyCode::BTN_RIGHT
+                                    | KeyCode::KEY_SCROLLUP
+                                    | KeyCode::KEY_SCROLLDOWN => {}
                                     _ => last_press = Some((code, this)),
                                 }
                             }
