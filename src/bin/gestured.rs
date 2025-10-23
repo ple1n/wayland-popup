@@ -12,6 +12,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::pin::Pin;
 use std::time::Duration;
 
+use anyhow::bail;
 use anyhow::Result;
 use async_bincode::tokio::AsyncBincodeStream;
 use egui::Key;
@@ -45,7 +46,16 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
+    
+    loop {
+        let rx = monitor_all().await;
+        warn!("monitor exited: {:?}", rx);
+    }
 
+    aok(())
+}
+
+async fn monitor_all() -> Result<()> {
     let mut streams = Vec::new();
     for (path, dev) in evdev::enumerate() {
         warn!("{:?}", path);
@@ -93,7 +103,7 @@ async fn main() -> Result<()> {
     let mut sa = futures::stream::select_all(streams);
     let mut timers = FuturesUnordered::new();
     let mut tap_dist: BTreeMap<KeyCode, TapDist> = BTreeMap::new();
-    let backoff_init = Backoff::new(1000, Duration::from_millis(1), Duration::from_secs(5));
+    let backoff_init = Backoff::new(1000, Duration::from_millis(50), Duration::from_secs(10));
     let mut backoff: Option<exponential_backoff::IntoIter> = None;
     let mut last_press: Option<(KeyCode, Instant)> = None;
     let mut last_key_taken_in_combo = false;
@@ -186,6 +196,9 @@ async fn main() -> Result<()> {
                     if let Some(back) = &mut backoff {
                         let du = back.next();
                         if let Some(Some(du)) = du {
+                            if du > Duration::from_secs(5) {
+                                bail!("restart");
+                            }
                             info!("back off for {:?}", &du);
                             sleep(du).await;
                         } else {
@@ -210,7 +223,6 @@ async fn main() -> Result<()> {
             }
         }
     }
-
     aok(())
 }
 

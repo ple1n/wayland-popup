@@ -51,6 +51,11 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
             version,
         } = event
         {
+            if let Some(dev) = &state.data_device {
+                warn!("Data device exists");
+                return;
+            }
+
             if interface == wl_seat::WlSeat::interface().name {
                 state.seat = Some(registry.bind::<wl_seat::WlSeat, _, _>(name, version, qh, ()));
             } else if interface
@@ -64,9 +69,6 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
                         qh,
                         (),
                     );
-                if let Some(dev) = &state.data_device {
-                    dev.destroy();
-                }
                 if let Some(dev) = &state.data_manager {
                     dev.destroy();
                 }
