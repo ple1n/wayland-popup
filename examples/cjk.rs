@@ -12,7 +12,6 @@ use wpopup::{
 use sctk::shell::wlr_layer::{Anchor, KeyboardInteractivity};
 use tokio::sync::watch;
 use tracing::{info, level_filters::LevelFilter};
-use wayland_clipboard_listener::WlListenType;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()

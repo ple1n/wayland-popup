@@ -145,7 +145,7 @@ pub struct WgpuLayerShellState {
     copy_data: Option<Vec<u8>>,
     copy_cancelled: bool,
 
-    pub ev: mpsc::UnboundedSender<WPEvent>,
+    pub ev: flume::Sender<WPEvent>,
 }
 
 pub mod cliphandler;
@@ -311,7 +311,7 @@ impl WgpuLayerShellState {
     pub(crate) fn new(
         loop_handle: LoopHandle<'static, Self>,
         options: LayerShellOptions,
-        ev: mpsc::UnboundedSender<WPEvent>,
+        ev: flume::Sender<WPEvent>,
     ) -> Self {
         let connection = Connection::connect_to_env().unwrap();
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();

@@ -38,7 +38,7 @@ pub enum WPEvent {
 }
 
 pub type MsgQueue = calloop::channel::Sender<Msg>;
-pub type EvRx = mpsc::UnboundedReceiver<WPEvent>;
+pub type EvRx = flume::Receiver<WPEvent>;
 
 impl WgpuLayerShellApp {
     pub fn new(
@@ -47,7 +47,7 @@ impl WgpuLayerShellApp {
     ) -> (MsgQueue, EvRx, Self) {
         let event_loop = EventLoop::try_new().expect("Could not create event loop.");
         let (sx, rx) = calloop::channel::channel::<Msg>();
-        let (esx, erx) = mpsc::unbounded_channel::<WPEvent>();
+        let (esx, erx) = flume::unbounded();
         let hd = event_loop.handle();
         let sx1 = sx.clone();
 
@@ -100,7 +100,7 @@ impl WgpuLayerShellApp {
         let layer_shell_state =
             WgpuLayerShellState::new(event_loop.handle(), layer_shell_options, esx);
         let app = RefCell::new(
-            app_creator(&layer_shell_state.egui_state.context(), sx.clone())
+            app_creator(&layer_shell_state.egui_state.context(), sx.clone(), erx.clone())
                 .expect("could not create app"),
         );
         app.borrow().init(layer_shell_state.egui_state.context());

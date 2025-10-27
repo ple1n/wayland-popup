@@ -4,7 +4,7 @@ use application::WgpuLayerShellApp;
 use egui::{Color32, Visuals};
 use layer_shell::LayerShellOptions;
 
-use crate::application::MsgQueue;
+use crate::application::{EvRx, MsgQueue};
 
 pub mod application;
 pub(crate) mod egui_state;
@@ -14,15 +14,16 @@ pub use egui_chinese_font;
 pub mod errors;
 pub mod proto;
 pub mod text_input;
-pub use egui;
-pub use flume;
 pub use async_bincode;
+pub use egui;
 pub use exponential_backoff;
+pub use flume;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
 
-pub type AppCreator = Box<dyn FnOnce(&egui::Context, MsgQueue) -> anyhow::Result<Box<dyn App>>>;
+pub type AppCreator =
+    Box<dyn FnOnce(&egui::Context, MsgQueue, EvRx) -> anyhow::Result<Box<dyn App>>>;
 
 pub trait App {
     fn update(&mut self, ctx: &egui::Context);
@@ -64,7 +65,7 @@ pub fn run_layer_simple(
 
     let (sx, e) = run_layer(
         options,
-        Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
+        Box::new(|a, b, c| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
     );
 
     (sx, e)
@@ -90,7 +91,7 @@ pub fn run_layer_cjk(
 
     let (sx, e) = run_layer(
         options,
-        Box::new(|a, b| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
+        Box::new(|a, b, c| Ok(Box::new(SimpleLayerWrapper { update_fun, msg: b }))),
     );
 
     (sx, e)
