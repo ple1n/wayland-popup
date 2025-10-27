@@ -51,30 +51,29 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
             version,
         } = event
         {
-            if let Some(dev) = &state.data_device {
-                warn!("Data device exists");
-                return;
-            }
-
             if interface == wl_seat::WlSeat::interface().name {
-                state.seat = Some(registry.bind::<wl_seat::WlSeat, _, _>(name, version, qh, ()));
+                if state.seat.is_none() {
+                    state.seat =
+                        Some(registry.bind::<wl_seat::WlSeat, _, _>(name, version, qh, ()));
+                }
             } else if interface
                 == zwlr_data_control_manager_v1::ZwlrDataControlManagerV1::interface().name
             {
-                warn!("found ZwlrDataControlManagerV1");
-                let mg = registry
-                    .bind::<zwlr_data_control_manager_v1::ZwlrDataControlManagerV1, _, _>(
-                        name,
-                        version,
-                        qh,
+                if state.data_manager.is_none() {
+                    let mg = registry
+                        .bind::<zwlr_data_control_manager_v1::ZwlrDataControlManagerV1, _, _>(
+                            name,
+                            version,
+                            qh,
+                            (),
+                        );
+                    state.data_device = Some(mg.get_data_device(
+                        state.seat.as_ref().unwrap(),
+                        &state.queue_handle,
                         (),
-                    );
-                if let Some(dev) = &state.data_manager {
-                    dev.destroy();
+                    ));
+                    state.data_manager = Some(mg);
                 }
-                state.data_device =
-                    Some(mg.get_data_device(state.seat.as_ref().unwrap(), &state.queue_handle, ()));
-                state.data_manager = Some(mg);
             }
         }
     }
