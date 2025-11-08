@@ -10,6 +10,8 @@ use std::fs::Permissions;
 use std::future::Future;
 use std::os::unix::fs::PermissionsExt;
 use std::pin::Pin;
+use std::sync::Arc;
+use std::thread;
 use std::time::Duration;
 
 use anyhow::bail;
@@ -30,6 +32,8 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 use tokio::time::Instant;
 use tokio::time::Sleep;
+use tokio_udev::AsyncMonitorSocket;
+use tokio_udev::MonitorBuilder;
 use tracing::{debug, error, info, warn};
 use wpopup::errors::wrap_noncritical;
 use wpopup::proto;
@@ -49,10 +53,27 @@ async fn main() -> Result<()> {
         .init();
     let (sx, rx) = flume::unbounded::<()>();
 
+    tokio::spawn(async move {
+        loop {
+            let rx = monitor_all(rx.clone()).await;
+            warn!("monitor exited: {:?}", rx);
+        }
+        aok(())
+    });
+
+    let mon = MonitorBuilder::new()?.match_subsystem("input")?;
+    let sock = mon.listen()?;
+    let mut sock = AsyncMonitorSocket::new(sock)?;
+    warn!("start dev monitor");
     loop {
-        let rx = monitor_all(rx.clone()).await;
-        warn!("monitor exited: {:?}", rx);
+        if let Some(x) = sock.next().await {
+            warn!("ev: {:?}", x);
+            sx.send_async(()).await?;
+        } else {
+            break;
+        };
     }
+    warn!("monitor exited");
 
     aok(())
 }
@@ -107,7 +128,7 @@ async fn monitor_all(sig: Receiver<()>) -> Result<()> {
     let mut tap_dist: BTreeMap<KeyCode, TapDist> = BTreeMap::new();
     let mut last_press: Option<(KeyCode, Instant)> = None;
     let mut last_key_taken_in_combo = false;
-    
+
     loop {
         let brsx = brsx.clone();
         let (ev, t) = futures::select! {
