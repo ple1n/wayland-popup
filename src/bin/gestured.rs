@@ -27,6 +27,8 @@ use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use futures::SinkExt;
 use futures::{stream::FuturesUnordered, StreamExt};
+use inotify::Inotify;
+use inotify::WatchMask;
 use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
@@ -53,28 +55,25 @@ async fn main() -> Result<()> {
         .init();
     let (sx, rx) = flume::unbounded::<()>();
 
-    tokio::spawn(async move {
+    thread::spawn(move || {
+        let mut ino = Inotify::init()?;
+        ino.watches().add("/dev/input/", WatchMask::CREATE)?;
+        warn!("start dev monitor");
+        let mut buffer = [0u8; 4096];
         loop {
-            let rx = monitor_all(rx.clone()).await;
-            warn!("monitor exited: {:?}", rx);
+            let ev = ino.read_events_blocking(&mut buffer)?;
+            warn!("dev changed");
+            sx.send(())?;
         }
+        warn!("monitor exited");
+
         aok(())
     });
 
-    let mon = MonitorBuilder::new()?.match_subsystem("input")?;
-    let sock = mon.listen()?;
-    let mut sock = AsyncMonitorSocket::new(sock)?;
-    warn!("start dev monitor");
     loop {
-        if let Some(x) = sock.next().await {
-            warn!("ev: {:?}", x);
-            sx.send_async(()).await?;
-        } else {
-            break;
-        };
+        let rx = monitor_all(rx.clone()).await;
+        warn!("monitor exited: {:?}", rx);
     }
-    warn!("monitor exited");
-
     aok(())
 }
 
