@@ -19,6 +19,7 @@ use egui::Key;
 use evdev::EventSummary;
 use evdev::KeyCode;
 use exponential_backoff::Backoff;
+use flume::Receiver;
 use futures::channel::oneshot;
 use futures::stream::FuturesOrdered;
 use futures::FutureExt;
@@ -46,16 +47,17 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
-    
+    let (sx, rx) = flume::unbounded::<()>();
+
     loop {
-        let rx = monitor_all().await;
+        let rx = monitor_all(rx.clone()).await;
         warn!("monitor exited: {:?}", rx);
     }
 
     aok(())
 }
 
-async fn monitor_all() -> Result<()> {
+async fn monitor_all(sig: Receiver<()>) -> Result<()> {
     let mut streams = Vec::new();
     for (path, dev) in evdev::enumerate() {
         warn!("{:?}", path);
@@ -103,22 +105,30 @@ async fn monitor_all() -> Result<()> {
     let mut sa = futures::stream::select_all(streams);
     let mut timers = FuturesUnordered::new();
     let mut tap_dist: BTreeMap<KeyCode, TapDist> = BTreeMap::new();
-    let backoff_init = Backoff::new(1000, Duration::from_millis(50), Duration::from_secs(10));
-    let mut backoff: Option<exponential_backoff::IntoIter> = None;
     let mut last_press: Option<(KeyCode, Instant)> = None;
     let mut last_key_taken_in_combo = false;
-
+    
     loop {
         let brsx = brsx.clone();
         let (ev, t) = futures::select! {
             ev = sa.next() => (Some(ev), None),
-            t = timers.next() =>  (None, Some(t))
+            t = timers.next() =>  (None, Some(t)),
+            _ = sig.recv_async() => (None, None)
+        };
+        let mut restart = || {
+            let mut streams = Vec::new();
+            for (path, dev) in evdev::enumerate() {
+                warn!("{:?}", path);
+                let ev = dev.into_event_stream()?;
+                streams.push(ev);
+            }
+            sa = futures::stream::select_all(streams);
+            aok(())
         };
         if let Some(ev) = ev {
             if let Some(ev) = ev {
                 let ev = ev;
                 if let Ok(ev) = ev {
-                    backoff = None;
                     match ev.destructure() {
                         EventSummary::Key(ke, code, ty) => {
                             if ty == PRESS {
@@ -192,21 +202,9 @@ async fn monitor_all() -> Result<()> {
                         _ => {}
                     }
                 } else {
-                    error!(ev=?ev, "error reading dev");
-                    if let Some(back) = &mut backoff {
-                        let du = back.next();
-                        if let Some(Some(du)) = du {
-                            if du > Duration::from_secs(5) {
-                                bail!("restart");
-                            }
-                            info!("back off for {:?}", &du);
-                            sleep(du).await;
-                        } else {
-                            break;
-                        }
-                    } else {
-                        backoff = Some(backoff_init.iter());
-                    }
+                    error!(ev=?ev, "error reading dev. restart.");
+                    restart()?;
+                    continue;
                 }
             } else {
                 break;
@@ -221,6 +219,8 @@ async fn monitor_all() -> Result<()> {
                     }
                 }
             }
+        } else {
+            restart()?;
         }
     }
     aok(())

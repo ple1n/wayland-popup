@@ -26,6 +26,8 @@ I had no idea what part was responsible but I then installed vulkan-intel, and i
 ## bugs that ever happened
 
 - currently, when there is vscode window behind the popup, the cursor position is offset by 4 pixels
+- devices get added or removed during system sleep/resume. It always misses some devices
+    - solution is to monitor over device adds
 
 ## philosophy
 
