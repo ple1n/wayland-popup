@@ -49,9 +49,9 @@ pub use sctk::{
 
 use sctk::{
     self,
-    reexports::protocols_wlr::data_control::v1::client::{
+    reexports::{protocols::ext::data_control::v1::client::ext_data_control_manager_v1, protocols_wlr::data_control::v1::client::{
         zwlr_data_control_device_v1, zwlr_data_control_manager_v1,
-    },
+    }},
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -137,6 +137,7 @@ pub struct WgpuLayerShellState {
     seat: Option<wl_seat::WlSeat>,
     seat_name: Option<String>,
     data_manager: Option<zwlr_data_control_manager_v1::ZwlrDataControlManagerV1>,
+    ext_data_manager: Option<ext_data_control_manager_v1::ExtDataControlManagerV1>,
     data_device: Option<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1>,
     mime_types: Vec<String>,
     set_priority: Option<Vec<String>>,
@@ -444,6 +445,7 @@ impl WgpuLayerShellState {
             copy_data: None,
             copy_cancelled: false,
             ev,
+            ext_data_manager: None,
         }
     }
 
