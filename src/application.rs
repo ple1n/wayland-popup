@@ -62,10 +62,12 @@ impl WgpuLayerShellApp {
                                 data.current_layer = Layer::Background;
                                 data.layer.set_layer(Layer::Background);
                                 data.layer.commit();
+                                data.egui_state.context().request_repaint();
                             } else {
                                 data.current_layer = Layer::Overlay;
                                 data.layer.set_layer(Layer::Overlay);
                                 data.layer.commit();
+                                data.egui_state.context().request_repaint();
                             }
                         }
                         Msg::Hide(b) => {
@@ -73,10 +75,12 @@ impl WgpuLayerShellApp {
                                 data.current_layer = Layer::Background;
                                 data.layer.set_layer(Layer::Background);
                                 data.layer.commit();
+                                data.egui_state.context().request_repaint();
                             } else {
                                 data.current_layer = Layer::Overlay;
                                 data.layer.set_layer(Layer::Overlay);
                                 data.layer.commit();
+                                data.egui_state.context().request_repaint();
                             }
                         }
                         Msg::Passthrough(b) => {

@@ -22,6 +22,8 @@ pub use egui;
 pub use exponential_backoff;
 pub use flume;
 pub use eframe;
+pub use sctk::shell::wlr_layer::Layer;
+
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
