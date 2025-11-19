@@ -155,6 +155,7 @@ pub struct WgpuLayerShellState {
     pub ev: flume::Sender<WPEvent>,
 
     zwp_data_dev: Option<ZwpPrimarySelectionDeviceV1>,
+    has_blur: bool,
 }
 
 pub mod cliphandler;
@@ -326,13 +327,19 @@ impl WgpuLayerShellState {
         let (global_list, event_queue) = registry_queue_init(&connection).unwrap();
         let queue_handle: Arc<QueueHandle<WgpuLayerShellState>> = Arc::new(event_queue.handle());
         let globals = &global_list;
-        // global_list
-        //     .bind::<ExtBackgroundEffectManagerV1, _, _>(queue_handle.as_ref(), 0..=1, ())
-        //     .unwrap();
+
+        let bg_eft = global_list.bind::<ExtBackgroundEffectManagerV1, _, _>(
+            queue_handle.as_ref(),
+            0..=1,
+            (),
+        );
+        // TODO: Future support
+        warn!("ExtBackgroundEffectManagerV1 {:?}", &bg_eft);
+        
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
             .unwrap();
-
+        let mut has_blur = false;
         let display = connection.display();
         display.get_registry(&queue_handle, ());
         let compositor_state = CompositorState::bind(&global_list, &queue_handle)
@@ -384,6 +391,7 @@ impl WgpuLayerShellState {
                 kdeblur.create(layer_surface.wl_surface(), &queue_handle, ());
             blur.set_region(Some(&region));
             blur.commit();
+            has_blur = true;
         }
 
         let wgpu_state = WgpuState::new(&connection.backend(), layer_surface.wl_surface())
@@ -457,6 +465,7 @@ impl WgpuLayerShellState {
             ev,
             ext_data_manager: None,
             zwp_data_dev: None,
+            has_blur,
         }
     }
 

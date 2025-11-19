@@ -87,6 +87,7 @@ impl WgpuState {
             height: 1,
             present_mode: PresentMode::AutoNoVsync,
             desired_maximum_frame_latency: 2,
+            // required for transparency
             alpha_mode: egui_wgpu::wgpu::CompositeAlphaMode::PreMultiplied,
             view_formats: vec![*texture_format],
         };

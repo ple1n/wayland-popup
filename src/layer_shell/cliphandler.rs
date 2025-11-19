@@ -169,9 +169,7 @@ impl Dispatch<ext_data_control_source_v1::ExtDataControlSourceV1, ()> for WgpuLa
                 }
             }
             ext_data_control_source_v1::Event::Cancelled => state.copy_cancelled = true,
-            _ => {
-                eprintln!("unhandled event: {event:?}");
-            }
+            _ => {}
         }
     }
 }
@@ -410,9 +408,7 @@ impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for Wgpu
                 let _ = state.ev.send(WPEvent::Fd(read));
                 offer.destroy();
             }
-            _ => {
-                tracing::warn!("unhandled event: {event:?}");
-            }
+            _ => {}
         }
     }
     event_created_child!(WgpuLayerShellState, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, [
@@ -441,9 +437,7 @@ impl Dispatch<zwlr_data_control_source_v1::ZwlrDataControlSourceV1, ()> for Wgpu
                 }
             }
             zwlr_data_control_source_v1::Event::Cancelled => state.copy_cancelled = true,
-            _ => {
-                eprintln!("unhandled event: {event:?}");
-            }
+            _ => {}
         }
     }
 }
