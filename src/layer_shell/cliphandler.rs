@@ -78,7 +78,8 @@ impl Dispatch<ext_data_control_device_v1::ExtDataControlDeviceV1, ()> for WgpuLa
                     state.current_type = Some(TEXT.to_string());
                     id.receive(TEXT.to_string(), write.as_fd());
                     drop(write);
-                    state.pipereader = Some(read);
+                    let _ = state.ev.send(WPEvent::Fd(read));
+                    warn!("ext_data_control_device_v1::Event::DataOffer");
                 }
             }
             ext_data_control_device_v1::Event::Finished => {
@@ -106,6 +107,8 @@ impl Dispatch<ext_data_control_device_v1::ExtDataControlDeviceV1, ()> for WgpuLa
                 let Some(offer) = id else {
                     return;
                 };
+
+                warn!("ext_data_control_device_v1::Event::Selection");
                 // if is copying, not run this
                 if state.copy_data.is_some() {
                     return;
@@ -141,7 +144,7 @@ impl Dispatch<ext_data_control_device_v1::ExtDataControlDeviceV1, ()> for WgpuLa
         }
     }
     event_created_child!(WgpuLayerShellState, ext_data_control_device_v1::ExtDataControlDeviceV1, [
-        ext_data_control_device_v1::EVT_DATA_OFFER_OPCODE => (ext_data_control_offer_v1::ExtDataControlOfferV1, ())
+        ext_data_control_device_v1::EVT_DATA_OFFER_OPCODE => (ext_data_control_offer_v1::ExtDataControlOfferV1, ()),
     ]);
 }
 
@@ -219,14 +222,19 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
             version,
         } = event
         {
+            warn!(name = name, interface = interface);
             if interface == ZwpPrimarySelectionDeviceManagerV1::interface().name {
-                let dev = registry.bind::<ZwpPrimarySelectionDeviceManagerV1, _, _>(
+                let mg = registry.bind::<ZwpPrimarySelectionDeviceManagerV1, _, _>(
                     name,
                     version,
                     qh,
                     (),
                 );
-                let dev = dev.get_device(state.seat.as_ref().unwrap(), &state.queue_handle, ());
+                if state.zwp_data_dev.is_none() {
+                    if let Some(seat) = &state.seat {
+                        state.zwp_data_dev = Some(mg.get_device(&seat, &state.queue_handle, ()));
+                    }
+                }
             } else if interface == wl_data_device_manager::WlDataDeviceManager::interface().name {
                 registry.bind::<wl_data_device_manager::WlDataDeviceManager, _, _>(
                     name,
@@ -239,10 +247,15 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
                 if state.seat.is_none() {
                     state.seat =
                         Some(registry.bind::<wl_seat::WlSeat, _, _>(name, version, qh, ()));
+                    let seat = state.seat.as_ref().unwrap();
+                    if let Some(mg) = &state.data_manager {
+                        state.data_device = Some(mg.get_data_device(seat, &state.queue_handle, ()));
+                    }
                 }
             } else if interface
                 == ext_data_control_manager_v1::ExtDataControlManagerV1::interface().name
             {
+                warn!("bind ExtDataControlManagerV1");
                 state.ext_data_manager = Some(
                     registry.bind::<ext_data_control_manager_v1::ExtDataControlManagerV1, _, _>(
                         name,
@@ -263,15 +276,10 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WgpuLayerShellState {
                             qh,
                             (),
                         );
-                    state.data_device = Some(mg.get_data_device(
-                        state.seat.as_ref().unwrap(),
-                        &state.queue_handle,
-                        (),
-                    ));
                     state.data_manager = Some(mg);
                 }
             } else {
-                tracing::warn!("registry ignored {} {}", interface, name)
+                // tracing::warn!("registry ignored {} {}", interface, name)
             }
         }
     }
@@ -313,7 +321,6 @@ impl Dispatch<ZwpPrimarySelectionDeviceManagerV1, ()> for WgpuLayerShellState {
         _conn: &wayland_client::Connection,
         _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
-        warn!("dev");
     }
 }
 
@@ -329,6 +336,7 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, ()> for WgpuLayerShellState {
         use zwp_primary_selection_device_v1::Event;
         match event {
             Event::Selection { id } => {
+                warn!("selection");
                 // let Some(offer) = id else {
                 //     return;
                 // };
@@ -350,7 +358,7 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, ()> for WgpuLayerShellState {
     }
     event_created_child!(WgpuLayerShellState, ZwpPrimarySelectionDeviceV1, [
         zwp_primary_selection_device_v1::EVT_DATA_OFFER_OPCODE => (zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1, ()),
-         zwp_primary_selection_device_v1::EVT_SELECTION_OPCODE => (zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1, ()),
+        zwp_primary_selection_device_v1::EVT_SELECTION_OPCODE => (zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1, ()),
     ]);
 }
 

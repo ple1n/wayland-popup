@@ -49,9 +49,15 @@ pub use sctk::{
 
 use sctk::{
     self,
-    reexports::{protocols::ext::data_control::v1::client::ext_data_control_manager_v1, protocols_wlr::data_control::v1::client::{
-        zwlr_data_control_device_v1, zwlr_data_control_manager_v1,
-    }},
+    reexports::{
+        protocols::{
+            ext::data_control::v1::client::ext_data_control_manager_v1,
+            wp::primary_selection::zv1::client::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
+        },
+        protocols_wlr::data_control::v1::client::{
+            zwlr_data_control_device_v1, zwlr_data_control_manager_v1,
+        },
+    },
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -147,6 +153,8 @@ pub struct WgpuLayerShellState {
     copy_cancelled: bool,
 
     pub ev: flume::Sender<WPEvent>,
+
+    zwp_data_dev: Option<ZwpPrimarySelectionDeviceV1>,
 }
 
 pub mod cliphandler;
@@ -331,9 +339,8 @@ impl WgpuLayerShellState {
             .expect("wl_compositor not available");
         let wl_surface = compositor_state.create_surface(&queue_handle);
 
-        let kdeblur = global_list
-            .bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ())
-            .unwrap();
+        let kdeblur =
+            global_list.bind::<OrgKdeKwinBlurManager, _, _>(queue_handle.as_ref(), 0..=1, ());
 
         let layer_shell =
             LayerShell::bind(&global_list, &queue_handle).expect("layer shell not available");
@@ -369,12 +376,15 @@ impl WgpuLayerShellState {
             seats.insert(seat.id(), PerSeat::default());
         }
 
-        let region = compositor_state
-            .wl_compositor()
-            .create_region(&queue_handle, ());
-        let blur: OrgKdeKwinBlur = kdeblur.create(layer_surface.wl_surface(), &queue_handle, ());
-        blur.set_region(Some(&region));
-        blur.commit();
+        if let Ok(kdeblur) = kdeblur {
+            let region = compositor_state
+                .wl_compositor()
+                .create_region(&queue_handle, ());
+            let blur: OrgKdeKwinBlur =
+                kdeblur.create(layer_surface.wl_surface(), &queue_handle, ());
+            blur.set_region(Some(&region));
+            blur.commit();
+        }
 
         let wgpu_state = WgpuState::new(&connection.backend(), layer_surface.wl_surface())
             .expect("Could not create wgpu state");
@@ -446,6 +456,7 @@ impl WgpuLayerShellState {
             copy_cancelled: false,
             ev,
             ext_data_manager: None,
+            zwp_data_dev: None,
         }
     }
 
