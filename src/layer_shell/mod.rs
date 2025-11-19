@@ -155,7 +155,7 @@ pub struct WgpuLayerShellState {
     pub ev: flume::Sender<WPEvent>,
 
     zwp_data_dev: Option<ZwpPrimarySelectionDeviceV1>,
-    has_blur: bool,
+    pub has_blur: bool,
 }
 
 pub mod cliphandler;
@@ -335,7 +335,7 @@ impl WgpuLayerShellState {
         );
         // TODO: Future support
         warn!("ExtBackgroundEffectManagerV1 {:?}", &bg_eft);
-        
+
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
             .unwrap();
@@ -510,6 +510,7 @@ impl WgpuLayerShellState {
         self.has_frame_callback = false;
         // crates/eframe/src/native/wgpu_integration.rs
 
+        application.sync(&self);
         let full_output = self
             .egui_state
             .process_events(|ctx| application.update(ctx));

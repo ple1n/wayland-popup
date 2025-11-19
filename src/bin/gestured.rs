@@ -34,8 +34,6 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 use tokio::time::Instant;
 use tokio::time::Sleep;
-use tokio_udev::AsyncMonitorSocket;
-use tokio_udev::MonitorBuilder;
 use tracing::{debug, error, info, warn};
 use wpopup::errors::wrap_noncritical;
 use wpopup::proto;

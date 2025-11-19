@@ -100,10 +100,15 @@ impl WgpuLayerShellApp {
         let layer_shell_state =
             WgpuLayerShellState::new(event_loop.handle(), layer_shell_options, esx);
         let app = RefCell::new(
-            app_creator(&layer_shell_state.egui_state.context(), sx.clone(), erx.clone())
-                .expect("could not create app"),
+            app_creator(
+                &layer_shell_state.egui_state.context(),
+                sx.clone(),
+                erx.clone(),
+            )
+            .expect("could not create app"),
         );
-        app.borrow().init(layer_shell_state.egui_state.context());
+        app.borrow()
+            .init(layer_shell_state.egui_state.context(), &layer_shell_state);
         (
             sx,
             erx,
@@ -138,9 +143,10 @@ impl WgpuLayerShellApp {
                     self.layer_shell_state.layer_opts,
                     self.layer_shell_state.ev,
                 );
-                self.application
-                    .borrow()
-                    .init(self.layer_shell_state.egui_state.context());
+                self.application.borrow().init(
+                    self.layer_shell_state.egui_state.context(),
+                    &self.layer_shell_state,
+                );
             }
         }
         Ok(())

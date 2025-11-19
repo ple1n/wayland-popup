@@ -4,7 +4,10 @@ use application::WgpuLayerShellApp;
 use egui::{Color32, Visuals};
 use layer_shell::LayerShellOptions;
 
-use crate::application::{EvRx, MsgQueue};
+use crate::{
+    application::{EvRx, MsgQueue},
+    layer_shell::WgpuLayerShellState,
+};
 
 pub mod application;
 pub(crate) mod egui_state;
@@ -26,6 +29,8 @@ pub type AppCreator =
     Box<dyn FnOnce(&egui::Context, MsgQueue, EvRx) -> anyhow::Result<Box<dyn App>>>;
 
 pub trait App {
+    /// Handle UI state change
+    fn sync(&mut self, layer: &WgpuLayerShellState);
     fn update(&mut self, ctx: &egui::Context);
 
     // fn save(&mut self, _storage: &mut dyn Storage) {}
@@ -36,7 +41,7 @@ pub trait App {
     // fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
     //     egui::Color32::from_rgba_unmultiplied(12, 12, 12, 180).to_normalized_gamma_f32()
     // }
-    fn init(&self, ctx: &egui::Context) {}
+    fn init(&self, ctx: &egui::Context, layer: &WgpuLayerShellState) {}
 }
 
 pub fn run_layer(
@@ -61,6 +66,7 @@ pub fn run_layer_simple(
         fn update(&mut self, ctx: &egui::Context) {
             (self.update_fun)(ctx, &self.msg);
         }
+        fn sync(&mut self, layer: &WgpuLayerShellState) {}
     }
 
     let (sx, e) = run_layer(
@@ -87,6 +93,7 @@ pub fn run_layer_cjk(
         fn update(&mut self, ctx: &egui::Context) {
             (self.update_fun)(ctx, &self.msg);
         }
+        fn sync(&mut self, layer: &WgpuLayerShellState) {}
     }
 
     let (sx, e) = run_layer(
