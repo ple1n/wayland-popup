@@ -56,8 +56,8 @@ name = "egui_chinese_font"
 path = "src/lib.rs"
 
 [dependencies]
-egui = "0.32.3"
-eframe = "0.32.3"
+egui = "0.33"
+eframe = "0.33"
 
 [target.'cfg(target_os = "linux")'.dependencies.fontconfig]
 version = "0.8"

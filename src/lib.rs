@@ -21,6 +21,7 @@ pub use async_bincode;
 pub use egui;
 pub use exponential_backoff;
 pub use flume;
+pub use eframe;
 
 /// Short for `Result<T, eframe::Error>`.
 pub type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;

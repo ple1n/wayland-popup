@@ -4,7 +4,7 @@ use egui_wgpu::{
         CommandEncoder, Device, LoadOp, Operations, Queue, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
     },
-    Renderer, ScreenDescriptor,
+    Renderer, RendererOptions, ScreenDescriptor,
 };
 use tracing::info;
 
@@ -72,13 +72,11 @@ impl State {
         //
         // Defaults to true.
 
-        let renderer = Renderer::new(
-            device,
-            output_color_format,
-            output_depth_format,
-            msaa_samples,
-            true,
-        );
+        let mut opts = RendererOptions::default();
+        opts.msaa_samples = msaa_samples;
+        opts.dithering = true;
+
+        let renderer = Renderer::new(device, output_color_format, opts);
 
         // input
         //     .viewports
@@ -178,6 +176,7 @@ impl State {
                         load: LoadOp::Clear(egui_wgpu::wgpu::Color::TRANSPARENT),
                         store: StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
