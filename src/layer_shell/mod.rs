@@ -53,10 +53,9 @@ use sctk::{
         protocols::{
             ext::data_control::v1::client::ext_data_control_manager_v1,
             wp::primary_selection::zv1::client::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
-        },
-        protocols_wlr::data_control::v1::client::{
+        }, protocols_misc::zwp_virtual_keyboard_v1::client::{zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1, zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1}, protocols_wlr::data_control::v1::client::{
             zwlr_data_control_device_v1, zwlr_data_control_manager_v1,
-        },
+        }
     },
 };
 use tokio::sync::mpsc;
@@ -156,6 +155,8 @@ pub struct WgpuLayerShellState {
 
     zwp_data_dev: Option<ZwpPrimarySelectionDeviceV1>,
     pub has_blur: bool,
+    pub virtual_keyboard_manager: Option<ZwpVirtualKeyboardManagerV1>,
+    pub virtual_keyboard: Option<ZwpVirtualKeyboardV1>,
 }
 
 pub mod cliphandler;
@@ -169,6 +170,8 @@ delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectManagerV1);
 delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlurManager);
 delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlur);
 delegate_noop!(WgpuLayerShellState: ignore WlRegion);
+delegate_noop!(WgpuLayerShellState: ignore ZwpVirtualKeyboardManagerV1);
+delegate_noop!(WgpuLayerShellState: ignore ZwpVirtualKeyboardV1);
 
 /// Calculate the `pixels_per_point` for a given window, given the current egui zoom factor
 pub fn pixels_per_point(egui_ctx: &egui::Context, scale: f32) -> f32 {
@@ -376,6 +379,12 @@ impl WgpuLayerShellState {
         );
         layer_surface.commit();
 
+        let vk_mgr =
+            global_list.bind::<ZwpVirtualKeyboardManagerV1, _, _>(queue_handle.as_ref(), 0..=1, ());
+        if vk_mgr.is_ok() {
+            info!("zwp_virtual_keyboard_manager_v1 available");
+        }
+
         let seat_state = SeatState::new(globals, &queue_handle);
 
         let mut seats = AHashMap::default();
@@ -466,6 +475,32 @@ impl WgpuLayerShellState {
             ext_data_manager: None,
             zwp_data_dev: None,
             has_blur,
+            virtual_keyboard_manager: vk_mgr.ok(),
+            virtual_keyboard: None,
+        }
+    }
+
+    pub fn simulate_key(&mut self) {
+        todo!();
+        // this is errorneous impl
+        // It will probably be better to just implement an input method.
+        // Rather than using time on this.
+        
+        if let (Some(mgr), Some(seat)) =
+            (self.virtual_keyboard_manager.as_ref(), self.seat.as_ref())
+        {
+            if self.virtual_keyboard.is_none() {
+                let vk = mgr.create_virtual_keyboard(seat, &self.queue_handle, ());
+                self.virtual_keyboard = Some(vk);
+            }
+
+            if let Some(vk) = &self.virtual_keyboard {
+                // Example: press and release a key (keycode 30) — adjust as needed.
+                let _ = vk.key(0, 30, 1);
+                let _ = vk.key(0, 30, 0);
+            }
+        } else {
+            warn!("virtual keyboard manager or seat not available");
         }
     }
 

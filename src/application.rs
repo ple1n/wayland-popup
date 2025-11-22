@@ -30,6 +30,7 @@ pub enum Msg {
     Passthrough(bool),
     Repaint,
     Exit,
+    SimulateKey
 }
 
 #[derive(Debug)]
@@ -57,6 +58,9 @@ impl WgpuLayerShellApp {
                 calloop::channel::Event::Msg(m) => {
                     info!("{:?}", &m);
                     match m {
+                        Msg::SimulateKey => {
+                            data.simulate_key();
+                        }
                         Msg::Toggle => {
                             if data.current_layer != Layer::Background {
                                 data.current_layer = Layer::Background;
