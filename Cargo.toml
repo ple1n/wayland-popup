@@ -39,6 +39,7 @@ dpi = "0.1.2"
 egui-chinese-font = { path = "./egui-chinese-font" }
 exponential-backoff = "2.1.0"
 inotify = "0.11.0"
+libc = "0.2"
 
 [dev-dependencies]
 egui_extras = { version = "0.33.2", features = ["all_loaders"] }

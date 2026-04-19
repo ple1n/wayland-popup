@@ -51,6 +51,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
+    log_boot_context();
     let (sx, rx) = flume::unbounded::<()>();
 
     thread::spawn(move || {
@@ -73,6 +74,54 @@ async fn main() -> Result<()> {
         warn!("monitor exited: {:?}", rx);
     }
     aok(())
+}
+
+fn log_boot_context() {
+    let uid = unsafe { libc::getuid() };
+    let euid = unsafe { libc::geteuid() };
+    let gid = unsafe { libc::getgid() };
+    let egid = unsafe { libc::getegid() };
+
+    let groups_len = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
+    let groups = if groups_len > 0 {
+        let mut groups = vec![0 as libc::gid_t; groups_len as usize];
+        let read = unsafe { libc::getgroups(groups.len() as i32, groups.as_mut_ptr()) };
+        if read >= 0 {
+            groups.truncate(read as usize);
+            Some(groups)
+        } else {
+            None
+        }
+    } else {
+        Some(Vec::new())
+    };
+
+    info!(
+        uid = uid,
+        euid = euid,
+        gid = gid,
+        egid = egid,
+        cwd = ?std::env::current_dir().ok(),
+        groups = ?groups,
+        "boot context"
+    );
+
+    for key in [
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "PATH",
+        "SHELL",
+        "TERM",
+        "WAYLAND_DISPLAY",
+        "DISPLAY",
+        "XDG_RUNTIME_DIR",
+        "XDG_SESSION_TYPE",
+        "XDG_CURRENT_DESKTOP",
+        "DBUS_SESSION_BUS_ADDRESS",
+    ] {
+        info!(key = key, value = ?std::env::var_os(key), "boot env");
+    }
 }
 
 async fn monitor_all(sig: Receiver<()>) -> Result<()> {
