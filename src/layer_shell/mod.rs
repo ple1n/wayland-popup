@@ -26,7 +26,7 @@ pub use sctk::{
         protocols::{
             ext::background_effect::v1::client::{
                 ext_background_effect_manager_v1::{self, ExtBackgroundEffectManagerV1},
-                ext_background_effect_surface_v1,
+                ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1,
             },
             wp::text_input::zv3::client::{
                 zwp_text_input_manager_v3::ZwpTextInputManagerV3, zwp_text_input_v3::ZwpTextInputV3,
@@ -167,6 +167,7 @@ pub struct PerSeat {
 }
 
 delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectManagerV1);
+delegate_noop!(WgpuLayerShellState: ignore ExtBackgroundEffectSurfaceV1);
 delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlurManager);
 delegate_noop!(WgpuLayerShellState: ignore OrgKdeKwinBlur);
 delegate_noop!(WgpuLayerShellState: ignore WlRegion);
@@ -331,13 +332,12 @@ impl WgpuLayerShellState {
         let queue_handle: Arc<QueueHandle<WgpuLayerShellState>> = Arc::new(event_queue.handle());
         let globals = &global_list;
 
-        let bg_eft = global_list.bind::<ExtBackgroundEffectManagerV1, _, _>(
+        let bg_effect = global_list.bind::<ExtBackgroundEffectManagerV1, _, _>(
             queue_handle.as_ref(),
             0..=1,
             (),
         );
-        // TODO: Future support
-        warn!("ExtBackgroundEffectManagerV1 {:?}", &bg_eft);
+        warn!("ExtBackgroundEffectManagerV1 {:?}", &bg_effect);
 
         WaylandSource::new(connection.clone(), event_queue)
             .insert(loop_handle.clone())
@@ -392,7 +392,16 @@ impl WgpuLayerShellState {
             seats.insert(seat.id(), PerSeat::default());
         }
 
-        if let Ok(kdeblur) = kdeblur {
+        if let Ok(bg_effect) = bg_effect {
+            let region = compositor_state
+                .wl_compositor()
+                .create_region(&queue_handle, ());
+            let blur: ExtBackgroundEffectSurfaceV1 =
+                bg_effect.get_background_effect(layer_surface.wl_surface(), &queue_handle, ());
+            blur.set_blur_region(Some(&region));
+            layer_surface.commit();
+            has_blur = true;
+        } else if let Ok(kdeblur) = kdeblur {
             let region = compositor_state
                 .wl_compositor()
                 .create_region(&queue_handle, ());
